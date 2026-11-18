@@ -165,9 +165,15 @@ textarea.pt{all:unset;display:block;width:100%;min-height:80px;background:#e7d24
   padding:10px 16px;background:rgba(0,0,0,.75);border:1px solid var(--line);opacity:0;transition:opacity .4s;pointer-events:none;text-align:center;text-transform:uppercase}
 #toast.on{opacity:1}
 #rot{display:none}
+#rotHint{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:#0c0c0d;color:var(--ink);font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-align:center;padding:24px}
+#rotHint .ph{width:44px;height:74px;border:2px solid var(--ink);border-radius:8px;animation:rotPh 2.2s ease-in-out infinite}
+@keyframes rotPh{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (pointer:coarse){#rotHint{display:flex}}
 </style>
 </head>
 <body>
+<div id="rotHint"><div class="ph"></div>RUOTA IL TELEFONO<br>IN ORIZZONTALE</div>
 <div id="stage"><canvas id="world"></canvas><canvas id="color"></canvas><div id="hot"></div></div>
 <canvas id="grain" width="320" height="180"></canvas>
 <div id="vign"></div><div id="flash"></div>
@@ -2169,6 +2175,27 @@ $('mResume').onclick = () => $('menu').classList.add('hide');
 $('mQuit').onclick = () => { save(); location.reload(); };
 ['prat', 'modal', 'gtr'].forEach(id => $(id).addEventListener('pointerdown', e => e.stopPropagation()));
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+// ── Schermo intero + orizzontale al primo tocco/click ovunque ──
+(() => {
+  const de = document.documentElement;
+  const isFs = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const lock = () => { try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) {} };
+  const goFs = () => {
+    if (isFs()) { lock(); return; }
+    const req = de.requestFullscreen || de.webkitRequestFullscreen;
+    if (!req) return;
+    try {
+      const r = req.call(de, { navigationUI: 'hide' });
+      if (r && r.then) r.then(lock).catch(() => {}); else lock();
+    } catch (e) {}
+  };
+  // capture: scatta prima di qualunque stopPropagation dei pannelli
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, goFs, { capture: true, passive: true }));
+  document.addEventListener('fullscreenchange', () => { if (isFs()) lock(); layout(); });
+  document.addEventListener('webkitfullscreenchange', () => layout());
+  screen.orientation?.addEventListener?.('change', () => layout());
+})();
 
 layout(); requestAnimationFrame(loop); showTitle(); NETW.init();
 window.__G = { S: () => S, PH, setScene, CFG, NET };
