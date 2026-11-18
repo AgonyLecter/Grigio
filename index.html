@@ -74,6 +74,8 @@ body.touch .hs.s .lb{opacity:.55;font-size:10px}
 #dchoices button.rt{color:#8f8c86;border-color:rgba(255,255,255,.07)}
 #dchoices button.nw{border-left:3px solid rgba(255,255,255,.55)}
 #dchoices button::before{content:"› ";color:var(--dim)}
+#dchoices.wait button{pointer-events:none;opacity:.35}
+#dchoices button{transition:opacity .25s}
 
 /* overlays */
 .ov{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:14px}
@@ -1222,12 +1224,29 @@ function choose(opts, prompt) {
   return new Promise(async res => {
     if (prompt) { dname.textContent = ''; dtext.className = 'narr'; dtext.innerHTML = glitch(fmt(prompt)); }
     dlg.classList.remove('hide'); dnext.style.display = 'none'; dch.innerHTML = '';
+    // Anti-tocco accidentale: le scelte si attivano solo dopo una breve pausa
+    // e solo con un tocco che INIZIA sul pulsante dopo che sono comparse.
+    // Se l'utente continua a toccare, il timer riparte: si attiva solo dopo una pausa.
+    let armed = false, downOn = null, armT = 0;
+    dch.classList.add('wait');
+    const arm = () => { armed = true; dch.classList.remove('wait'); removeEventListener('pointerdown', rearm, true); };
+    const rearm = () => { if (armed) return; clearTimeout(armT); armT = setTimeout(arm, 450); };
+    armT = setTimeout(arm, 650);
+    addEventListener('pointerdown', rearm, true);
     opts.forEach((o, i) => {
       const b = document.createElement('button'); b.textContent = fmt(o.t); if (o.rt) b.className = 'rt'; if (o.nw) b.className = 'nw';
-      b.onclick = e => { e.stopPropagation(); A.ui(); dch.innerHTML = ''; if (o.rt) addGray(.8); res(o.v !== undefined ? o.v : i); };
+      b.addEventListener('pointerdown', () => { downOn = armed ? b : null; });
+      const pickIt = () => { clearTimeout(armT); removeEventListener('pointerdown', rearm, true); dch.classList.remove('wait'); A.ui(); dch.innerHTML = ''; if (o.rt) addGray(.8); res(o.v !== undefined ? o.v : i); };
+      b.onclick = e => {
+        e.stopPropagation();
+        if (!armed) return;
+        if (e.detail > 0 && downOn !== b) return; // click da tocco iniziato prima/altrove
+        removeEventListener('keydown', kh); pickIt();
+      };
+      b._pick = pickIt;
       dch.appendChild(b);
     });
-    const kh = e => { const n = parseInt(e.key); if (n >= 1 && n <= opts.length) { removeEventListener('keydown', kh); dch.children[n - 1].click(); } };
+    const kh = e => { if (!armed || e.repeat) return; const n = parseInt(e.key); if (n >= 1 && n <= opts.length) { removeEventListener('keydown', kh); dch.children[n - 1]._pick(); } };
     addEventListener('keydown', kh);
   });
 }
