@@ -1,0 +1,54 @@
+IMPOSTAZIONI CONSIGLIATE PER LA PAGINA ITCH.IO
+==============================================
+
+Title ............... GRIGIO
+Project URL ......... grigio
+Short description ... Every day is Monday. A psychological horror about routine. / Ogni giorno è lunedì.
+Classification ...... Games
+Kind of project ..... HTML  (i file Windows si aggiungono comunque come download)
+Release status ...... Released
+Pricing ............. "No payments" oppure "$0 or donate"
+
+UPLOADS
+-------
+1) GRIGIO-web.zip
+   - spunta "This file will be played in the browser"
+2) GRIGIO-windows.zip
+   - piattaforma: Windows (icona Windows)
+
+EMBED OPTIONS (sezione che compare dopo aver caricato GRIGIO-web.zip)
+-----------------------------------------------------------------
+Embed in page ....... Manually set size: 1280 x 720
+Mobile friendly ..... SÌ  -> Orientation: Landscape
+Fullscreen button ... SÌ
+Automatically start on page load ... NO (serve un clic per far partire l'audio)
+Enable scrollbars ... NO
+SharedArrayBuffer ... NO
+
+DETAILS
+-------
+Description ......... incolla description-itch.html (versione bilingue) 
+                      oppure i testi in description-en.md / description-it.md
+Genre ............... Interactive Fiction (in alternativa: Adventure)
+Tags ................ horror, psychological-horror, atmospheric, narrative, short,
+                      point-and-click, office, mental-health, story-rich, italian
+AI generation ....... compila secondo verità
+App store links ..... -
+Custom noun ......... -
+Community ........... Comments
+Visibility .......... Draft per provare, poi Public
+
+METADATA (Edit game -> More -> Metadata)
+----------------------------------------
+Languages ........... English, Italian
+Inputs .............. Mouse, Keyboard, Touchscreen
+Accessibility ....... Subtitles (tutto il gioco è testo)
+Average session ..... About an hour
+Content warnings .... Depression, Psychological horror, Mild jump scares
+
+IMMAGINI (cartella 2-PAGINA)
+----------------------------
+Cover image ......... cover.png (630x500)  — c'è anche cover@2x.png in alta risoluzione
+Screenshots ......... screenshots/en/*.jpg (oppure it/ per una pagina in italiano)
+Banner / header ..... banner.png (in "Edit theme" -> Banner)
+Theme colori ........ sfondo #0c0c0d · testo #d9d7d2 · link #e0473a · font "IBM Plex Mono" se disponibile

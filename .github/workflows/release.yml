@@ -1,0 +1,41 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'electron/**', 'tools/**', 'assets/**', 'itch/**', 'package.json', 'package-lock.json', '.github/workflows/release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run win
+      - run: npm run itch
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: GRIGIO — build ${{ github.run_number }}
+          make_latest: true
+          body: |
+            **GRIGIO-itch.zip** — complete itch.io package (web + Windows + cover, screenshots, descriptions). Pacchetto completo per itch.io.
+            **GRIGIO-windows.zip** — Windows version, unzip and run GRIGIO.exe. Versione Windows.
+            **GRIGIO-web.zip** — browser version (upload to itch.io as HTML). Versione browser.
+          files: |
+            build/GRIGIO-itch.zip
+            build/GRIGIO-windows.zip
+            build/GRIGIO-web.zip

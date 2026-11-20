@@ -1,0 +1,28 @@
+{
+  "name": "grigio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GRIGIO — psychological horror game about routine. Perpetua Assicurazioni S.p.A.",
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "icons": "node tools/icons.mjs",
+    "check-i18n": "node tools/check-i18n.mjs",
+    "shots": "node tools/screenshots.mjs",
+    "win": "node tools/package-win.mjs",
+    "itch": "node tools/itch.mjs",
+    "all": "npm run build && npm run win && npm run itch"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.4.4",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-serif": "^5.3.0",
+    "acorn": "^8.19.0",
+    "archiver": "^7.0.1",
+    "electron": "^33.4.11",
+    "html-minifier-terser": "^7.2.0",
+    "javascript-obfuscator": "^4.2.2",
+    "pe-library": "^1.0.1",
+    "resedit": "^2.0.3"
+  }
+}

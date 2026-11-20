@@ -1,0 +1,2620 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="GRIGIO — a psychological horror game about routine, apathy and the small cracks where the light gets in.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>GRIGIO — Perpetua Assicurazioni S.p.A.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#d9d7d2; --dim:#8d8b86; --bg:#0c0c0d; --panel:rgba(16,16,17,.92);
+  --line:rgba(255,255,255,.09); --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --serif:'IBM Plex Serif',Georgia,serif; --gf:grayscale(.6);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:var(--serif);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#stage{position:absolute;left:0;top:0;overflow:hidden;background:#000}
+#stage canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+#world{filter:var(--gf);transition:filter 1.2s}
+#color{pointer-events:none}
+#hot{position:absolute;inset:0}
+#grain{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.08;mix-blend-mode:overlay;z-index:5}
+#vign{position:fixed;inset:0;pointer-events:none;z-index:6;
+  background:radial-gradient(ellipse at 50% 46%,transparent 45%,rgba(0,0,0,.55) 85%,rgba(0,0,0,.85));}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;mix-blend-mode:screen}
+#black{position:fixed;inset:0;background:#000;z-index:40;opacity:1;pointer-events:none;transition:opacity .9s}
+
+/* hotspots */
+.hs{position:absolute;border:0;background:none;padding:0;cursor:pointer;color:var(--ink);font:600 12px/1 var(--mono);letter-spacing:.06em}
+.hs .dot{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  border:1.5px solid rgba(240,238,230,.85);box-shadow:0 0 10px rgba(255,255,255,.35)}
+.hs.r .dot::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:1px solid rgba(255,255,255,.5);animation:pulse 2s infinite}
+.hs.s .dot{width:8px;height:8px;margin:-4px 0 0 -4px;border-color:rgba(255,255,255,.28);box-shadow:none;animation:glim 4.5s infinite}
+.hs .lb{position:absolute;left:50%;top:calc(50% + 14px);transform:translateX(-50%);white-space:nowrap;
+  background:rgba(10,10,10,.82);padding:5px 8px;border:1px solid var(--line);opacity:0;transition:opacity .2s;text-transform:uppercase}
+.hs.r .lb{opacity:.92}
+.hs:hover .lb,.hs:focus .lb{opacity:1}
+.hs:hover .dot{border-color:#fff}
+@keyframes pulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.6);opacity:0}}
+@keyframes glim{0%,70%,100%{opacity:.25}82%{opacity:.9}}
+body.touch .hs.s .lb{opacity:.55;font-size:10px}
+
+/* HUD */
+#hud{position:fixed;left:0;right:0;top:0;z-index:20;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 0;pointer-events:none;font-family:var(--mono);font-size:12px;letter-spacing:.12em}
+#hud .l{line-height:1.6;text-shadow:0 1px 3px #000}
+#hud .l b{font-weight:600;color:#fff}
+#hud .mood{color:var(--dim);font-size:11px}
+#prism{display:flex;gap:5px;align-items:center;pointer-events:auto}
+#prism i{width:13px;height:22px;border:1px solid rgba(255,255,255,.25);transform:skewX(-14deg);background:rgba(255,255,255,.03);transition:all .8s}
+#menuBtn{margin-left:10px;width:34px;height:30px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--ink);font:600 15px var(--mono);cursor:pointer}
+#hud.hide{opacity:0}
+
+/* dialogue */
+#dlg{position:fixed;z-index:25;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));
+  width:min(920px,calc(100% - 20px));background:var(--panel);border:1px solid var(--line);
+  padding:16px 20px 14px;box-shadow:0 10px 40px rgba(0,0,0,.6);transition:opacity .25s}
+#dlg.hide{opacity:0;pointer-events:none}
+#dname{font:600 11px var(--mono);letter-spacing:.2em;text-transform:uppercase;margin-bottom:7px;color:#bdb9b0}
+#dname:empty{display:none}
+#dtext{font-size:clamp(15px,2.1vw,19px);line-height:1.5;min-height:1.5em;white-space:pre-line}
+#dtext.narr{font-style:italic;color:#c6c3bc}
+#dtext .g{color:#777;letter-spacing:.08em}
+#dnext{position:absolute;right:16px;bottom:8px;font:12px var(--mono);color:var(--dim);animation:bob 1.2s infinite}
+@keyframes bob{50%{transform:translateY(3px)}}
+#dchoices{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+#dchoices:empty{display:none;margin:0}
+#dchoices button{all:unset;cursor:pointer;padding:10px 13px;border:1px solid rgba(255,255,255,.14);font-size:clamp(14px,1.9vw,17px);
+  color:#f0eee8;background:rgba(255,255,255,.03);transition:background .15s,border-color .15s}
+#dchoices button:hover,#dchoices button:focus-visible{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.35)}
+#dchoices button.rt{color:#8f8c86;border-color:rgba(255,255,255,.07)}
+#dchoices button.nw{border-left:3px solid rgba(255,255,255,.55)}
+#dchoices button::before{content:"› ";color:var(--dim)}
+#dchoices.wait button{pointer-events:none;opacity:.35}
+#dchoices button{transition:opacity .25s}
+
+/* overlays */
+.ov{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:14px}
+.ov.hide{display:none}
+#title{background:radial-gradient(ellipse at 50% 40%,#1b1b1c,#060606 70%);flex-direction:column;text-align:center;z-index:45}
+#title h1{font:600 clamp(54px,12vw,130px)/.9 var(--mono);letter-spacing:.32em;margin:0 0 0 .32em;color:#bfbdb8;
+  text-shadow:0 0 30px rgba(255,255,255,.08)}
+#title .sub{font-style:italic;color:var(--dim);margin:14px 0 4px;font-size:clamp(15px,2.4vw,19px)}
+#title .co{font:11px var(--mono);letter-spacing:.2em;color:#6f6d69;margin-bottom:28px;text-transform:uppercase}
+.btn{all:unset;cursor:pointer;font:600 13px var(--mono);letter-spacing:.22em;padding:13px 26px;border:1px solid rgba(255,255,255,.22);
+  margin:5px;text-transform:uppercase;color:#e9e7e1;background:rgba(255,255,255,.02);text-align:center}
+.btn:hover,.btn:focus-visible{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+.btn.ghost{border-color:rgba(255,255,255,.08);color:var(--dim)}
+#title .stats{margin-top:26px;font:11px var(--mono);color:#66645f;letter-spacing:.14em;line-height:1.9}
+#title .cw{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;font:11px var(--mono);color:#55534f;letter-spacing:.08em;padding:0 16px}
+#nameBox{display:none;flex-direction:column;align-items:center;gap:10px;margin-top:6px}
+#nameBox input{all:unset;border-bottom:1px solid rgba(255,255,255,.35);font:600 22px var(--mono);letter-spacing:.3em;text-align:center;width:260px;padding:6px;text-transform:uppercase}
+#nameBox label{font:11px var(--mono);letter-spacing:.2em;color:var(--dim)}
+
+#card{background:#000;flex-direction:column;z-index:42;text-align:center}
+#card .d{font:600 clamp(28px,6vw,56px) var(--mono);letter-spacing:.35em;color:#cfcdc8}
+#card .w{font:13px var(--mono);letter-spacing:.5em;color:#77756f;margin-top:10px}
+#card .q{font-style:italic;color:#8b8983;margin-top:30px;max-width:560px;font-size:17px;line-height:1.6}
+
+/* pratica */
+#prat{background:rgba(0,0,0,.7);z-index:28;filter:var(--gf)}
+#prat .desk{width:min(1020px,100%);max-height:100%;overflow:auto;background:#cfccc4;color:#1d1d1c;padding:14px;
+  box-shadow:0 20px 60px #000;font-family:var(--mono);position:relative}
+#prat .top{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;border-bottom:1px solid #9c998f;padding-bottom:8px;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+#prat .cols{display:grid;grid-template-columns:1.1fr 1fr .8fr;gap:12px}
+@media (max-width:760px){#prat .cols{grid-template-columns:1fr 1fr}#prat .rules{grid-column:1/-1}}
+@media (max-width:480px){#prat .cols{grid-template-columns:1fr}}
+.doc{background:#f2efe6;border:1px solid #a9a598;padding:12px;font-size:12.5px;position:relative;min-height:220px}
+.doc h3{margin:0 0 9px;font-size:11px;letter-spacing:.18em;border-bottom:2px solid #1d1d1c;padding-bottom:5px}
+.doc .f{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #b3ae9f;padding:6px 0}
+.doc .f span:first-child{color:#6d6a62;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.doc .f span:last-child{font-weight:600;text-align:right}
+.doc .sig{height:44px;margin-top:8px;border-bottom:1px solid #777;position:relative}
+.doc .sig svg{position:absolute;left:10px;bottom:2px}
+.doc .desc{margin-top:8px;font-family:var(--serif);font-style:italic;font-size:14px;line-height:1.45;color:#2a1f1f}
+.doc.arch{background:#e6e3da}
+.rules{font-size:11px;line-height:1.55;background:#bab6ab;padding:10px;border:1px solid #9c998f}
+.rules b{display:block;letter-spacing:.14em;margin-bottom:6px}
+#prat .act{display:flex;gap:12px;justify-content:center;margin-top:14px}
+#prat .act button{all:unset;cursor:pointer;font:600 14px var(--mono);letter-spacing:.2em;padding:14px 28px;border:2px solid}
+#bRej{color:#8c1d14;border-color:#8c1d14}#bApp{color:#1f5a2a;border-color:#1f5a2a}
+#prat .act button:hover{background:rgba(0,0,0,.07)}
+.stamp{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) rotate(-12deg) scale(2.2);opacity:0;
+  font:600 44px var(--mono);letter-spacing:.15em;border:5px solid;padding:6px 18px;pointer-events:none;transition:all .18s cubic-bezier(.2,1.6,.4,1)}
+.stamp.on{opacity:.85;transform:translate(-50%,-50%) rotate(-12deg) scale(1)}
+#prat .err{position:absolute;right:14px;bottom:12px;font-size:11px;color:#8c1d14;letter-spacing:.1em}
+.glitchy{animation:gl .18s infinite steps(2)}
+@keyframes gl{0%{transform:translateX(0)}50%{transform:translateX(1.5px);filter:blur(.4px)}}
+
+/* generic modal */
+#modal{background:rgba(0,0,0,.78);z-index:35}
+#modal .box{width:min(620px,100%);max-height:92%;overflow:auto;background:#141415;border:1px solid var(--line);padding:20px;position:relative}
+#modal h2{font:600 13px var(--mono);letter-spacing:.24em;margin:0 0 14px;text-transform:uppercase;color:#cfcac0}
+#modal .x{position:absolute;right:10px;top:8px}
+.fridge{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.pi{background:#e7d24a;color:#2a2410;padding:10px;font:600 12px/1.35 var(--mono);min-height:90px;box-shadow:2px 3px 8px rgba(0,0,0,.5);position:relative;word-break:break-word}
+.pi small{display:block;margin-top:8px;font-weight:400;font-size:10px;opacity:.75}
+.pi.c1{background:#f0a0b4}.pi.c2{background:#9fd3e8}.pi.c3{background:#b7e29a}.pi.c4{background:#f3b36b}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.bd{background:#d8d6d0;color:#222;padding:8px;font:10px var(--mono);text-align:center;border-top:12px solid #555;filter:grayscale(1)}
+.bd .ph{height:70px;background:#999;margin:6px auto;width:56px;position:relative;overflow:hidden}
+.bd .ph::before{content:"";position:absolute;left:14px;top:10px;width:28px;height:30px;border-radius:50%;background:#bbb}
+.bd .ph::after{content:"";position:absolute;left:6px;top:42px;width:44px;height:40px;border-radius:40% 40% 0 0;background:#bbb}
+.bd b{display:block;font-size:12px;letter-spacing:.1em}
+textarea.pt{all:unset;display:block;width:100%;min-height:80px;background:#e7d24a;color:#2a2410;font:600 15px/1.4 var(--mono);padding:12px;text-transform:uppercase;box-sizing:border-box}
+.muted{color:var(--dim);font-size:13px;line-height:1.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+
+/* guitar */
+#gtr{background:rgba(0,0,0,.82);z-index:33;flex-direction:column}
+#gtr .neck{width:min(760px,96%);height:240px;background:linear-gradient(#3b2418,#24160e);position:relative;border:6px solid #120b07;box-shadow:0 20px 50px #000}
+#gtr .str{position:absolute;left:0;right:0;height:3px;background:linear-gradient(#ddd,#888);cursor:pointer}
+#gtr .str::before{content:"";position:absolute;left:0;right:0;top:-16px;bottom:-16px}
+#gtr .str.v{animation:vib .08s 6}
+@keyframes vib{50%{transform:translateY(2px)}}
+#gtr .chords{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+#gtr p{font-style:italic;color:#bbb;text-align:center;max-width:560px}
+
+#menu{background:rgba(0,0,0,.8);z-index:46}
+#menu .box{background:#141415;border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;min-width:260px}
+#menu .info{font:11px var(--mono);color:var(--dim);letter-spacing:.1em;line-height:1.8;margin:8px 0 12px;text-align:center}
+
+#toast{position:fixed;top:calc(56px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:26;font:600 12px var(--mono);letter-spacing:.2em;
+  padding:10px 16px;background:rgba(0,0,0,.75);border:1px solid var(--line);opacity:0;transition:opacity .4s;pointer-events:none;text-align:center;text-transform:uppercase}
+#toast.on{opacity:1}
+#rot{display:none}
+#langSel{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;display:flex;gap:6px}
+#langSel button{all:unset;cursor:pointer;font:600 11px var(--mono);letter-spacing:.18em;padding:7px 10px;border:1px solid rgba(255,255,255,.1);color:#6f6d69}
+#langSel button.on{color:#e9e7e1;border-color:rgba(255,255,255,.45)}
+#langSel button:hover{color:#e9e7e1}
+#rotHint{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:#0c0c0d;color:var(--ink);font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-align:center;padding:24px}
+#rotHint .ph{width:44px;height:74px;border:2px solid var(--ink);border-radius:8px;animation:rotPh 2.2s ease-in-out infinite}
+@keyframes rotPh{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (pointer:coarse){#rotHint{display:flex}}
+</style>
+</head>
+<body>
+<div id="rotHint"><div class="ph"></div><span data-en="ROTATE YOUR PHONE<br>TO LANDSCAPE">RUOTA IL TELEFONO<br>IN ORIZZONTALE</span></div>
+<div id="stage"><canvas id="world"></canvas><canvas id="color"></canvas><div id="hot"></div></div>
+<canvas id="grain" width="320" height="180"></canvas>
+<div id="vign"></div><div id="flash"></div>
+
+<div id="hud" class="hide">
+  <div class="l"><b id="hDay">GIORNO 1</b> · <span id="hWd">LUNEDÌ</span> · <span id="hTime">06:47</span><br><span class="mood" id="hMood">—</span></div>
+  <div id="prism"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><button id="menuBtn" aria-label="Menu">≡</button></div>
+</div>
+<div id="toast"></div>
+
+<div id="dlg" class="hide"><div id="dname"></div><div id="dtext"></div><div id="dchoices"></div><div id="dnext">▼</div></div>
+
+<div id="prat" class="ov hide"><div class="desk">
+  <div class="top"><span data-en="PERPETUA ASSICURAZIONI S.P.A. — CLAIMS DEPARTMENT · 4B-17">PERPETUA ASSICURAZIONI S.P.A. — UFFICIO SINISTRI · 4B-17</span><span id="pCount">PRATICA 1/4</span><span id="pQueue">IN CODA: 1.284</span></div>
+  <div class="cols">
+    <div class="doc" id="pForm"></div>
+    <div class="doc arch" id="pArch"></div>
+    <div class="rules" data-en="<b>PROCEDURE 7.3</b>REJECT the claim if:<br>· the PLATE does not match<br>· the POLICYHOLDER does not match<br>· the policy had EXPIRED by the date of the incident<br>· the SIGNATURE is missing<br><br>In all other cases: APPROVE.<br><br><i>“Don’t think. Verify.”</i>"><b>PROCEDURA 7.3</b>RESPINGERE la pratica se:<br>· la TARGA non coincide<br>· l'INTESTATARIO non coincide<br>· la polizza è SCADUTA alla data del sinistro<br>· la FIRMA è assente<br><br>In tutti gli altri casi: APPROVARE.<br><br><i>«Non pensare. Verifica.»</i></div>
+  </div>
+  <div class="act"><button id="bRej" data-en="REJECT">RESPINGI</button><button id="bApp" data-en="APPROVE">APPROVA</button></div>
+  <div class="stamp" id="pStamp">APPROVATA</div>
+  <div class="err" id="pErr"></div>
+</div></div>
+
+<div id="modal" class="ov hide"><div class="box"><button class="btn ghost x" id="mX">✕</button><h2 id="mT"></h2><div id="mB"></div></div></div>
+
+<div id="gtr" class="ov hide">
+  <p id="gtrP">La chitarra rossa. Le corde sono vecchie, ma tengono. Le dita ricordano prima di te.</p>
+  <div class="neck" id="neck"></div>
+  <div class="chords" id="chords"></div>
+</div>
+
+<div id="menu" class="ov hide"><div class="box">
+  <div class="info" id="menuInfo"></div>
+  <button class="btn" id="mAudio">AUDIO: ON</button>
+  <button class="btn" id="mLang">LINGUA: ITALIANO</button>
+  <button class="btn" id="mResume" data-en="RESUME">RIPRENDI</button>
+  <button class="btn ghost" id="mQuit" data-en="BACK TO TITLE">TORNA AL TITOLO</button>
+</div></div>
+
+<div id="card" class="ov hide"><div class="d" id="cD"></div><div class="w" id="cW"></div><div class="q" id="cQ"></div></div>
+
+<div id="title" class="ov">
+  <div id="langSel"><button data-l="it">ITALIANO</button><button data-l="en">ENGLISH</button></div>
+  <h1>GRIGIO</h1>
+  <div class="sub" data-en="Every day is Monday.">Ogni giorno è lunedì.</div>
+  <div class="co" data-en="Perpetua Assicurazioni S.p.A. · Claims Department · 4th floor">Perpetua Assicurazioni S.p.A. · Ufficio Sinistri · 4° piano</div>
+  <div id="tBtns">
+    <button class="btn" id="tNew" data-en="CLOCK IN">TIMBRA IL CARTELLINO</button>
+    <button class="btn ghost" id="tCont" style="display:none" data-en="CONTINUE">CONTINUA</button>
+    <button class="btn ghost" id="tInstall" style="display:none" data-en="INSTALL THE GAME">INSTALLA IL GIOCO</button>
+  </div>
+  <div id="nameBox">
+    <label data-en="WHAT’S YOUR NAME? (NAME ON YOUR BADGE)">COME TI CHIAMI? (NOME SUL BADGE)</label>
+    <input id="nameIn" maxlength="12" value="LUCA" autocomplete="off" spellcheck="false">
+    <button class="btn" id="nameGo" data-en="START YOUR SHIFT">INIZIA IL TURNO</button>
+  </div>
+  <div class="stats" id="tStats">&nbsp;</div>
+  <div class="cw" data-en="A horror game about routine, apathy and depression — and about the small cracks where the light gets in. Best played with headphones.">Un gioco horror su routine, apatia, depressione — e sulle piccole crepe da cui entra la luce. Meglio con le cuffie.</div>
+</div>
+<div id="black"></div>
+<script type="module">
+// ======================================================================
+//  GRIGIO — horror psicologico sulla routine. Perpetua Assicurazioni S.p.A.
+//  Single file · Canvas 2D · WebAudio · Firebase Realtime DB (nodo "grigio")
+// ======================================================================
+const $ = id => document.getElementById(id);
+const VW = 1600, VH = 900;
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const isTouch = matchMedia('(pointer:coarse)').matches;
+if (isTouch) document.body.classList.add('touch');
+
+// ---------------------------------------------------------------- LINGUA / LANGUAGE
+const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+let LANG = LS.get('grigio_lang') || (String((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en');
+if (LANG !== 'it' && LANG !== 'en') LANG = 'en';
+// Dizionario inglese: chiave = testo italiano originale, valore = traduzione.
+const EN = {
+  // --- interfaccia, oggetti di scena
+  "qualcosa si muove": "something stirs", "stanco": "tired", "spento": "switched off", "vuoto": "empty", "assente": "absent",
+  "non ci sei quasi più": "you're barely here", "grigio": "gray",
+  "ASSICURIAMO IL VOSTRO DOMANI. UGUALE A OGGI.": "WE INSURE YOUR TOMORROW. JUST LIKE TODAY.",
+  "DIPENDENTI DEL MESE": "EMPLOYEES OF THE MONTH", "CAFFÈ": "COFFEE", "BACHECA": "NOTES", "PRATICHE": "CLAIMS",
+  "NON": "DON'T", "PENSARE": "THINK", "PRATICHE / SETTIMANA": "CLAIMS / WEEK", "OBIETTIVO: +0%": "TARGET: +0%", "PIANO 4": "FLOOR 4",
+  "PERCHÉ RESISTI?": "WHY DO YOU RESIST?", "VA TUTTO BENE": "EVERYTHING IS FINE",
+  "BACHECA DEL FRIGO": "THE FRIDGE BOARD", "UN BIGLIETTO": "A NOTE",
+  "BIGLIETTO ATTACCATO": "NOTE PINNED", "HAI USATO LA TUA VOCE": "YOU USED YOUR VOICE", "OGGETTO: CHIAVE DELLA PORTA ROSSA": "ITEM: KEY TO THE RED DOOR",
+  "TORNA AL TITOLO": "BACK TO TITLE", "RIPROVA": "TRY AGAIN", "FUORI, INSIEME": "OUTSIDE, TOGETHER", "FUORI": "OUTSIDE", "ASSORBITO": "ABSORBED",
+  "La chitarra rossa. Le corde sono vecchie, ma tengono. Le dita ricordano prima di te.": "The red guitar. The strings are old, but they hold. Your fingers remember before you do.",
+  "La-minore. Fa. Do. Sol. La stanza, per un attimo, ha un suono che non è il ronzio del frigo.": "A minor. F. C. G. For a moment, the room has a sound that isn't the hum of the fridge.",
+  // --- nomi di chi parla
+  "DOTT. VALENTI": "DR. VALENTI", "ALTOPARLANTE": "INTERCOM", "RIFLESSO": "REFLECTION", "LA TUA VOCE": "YOUR VOICE", "IL PROCESSO": "THE PROCESS",
+  // --- pratiche
+  "Descrizione del danno: «Non ricordo l'ultima volta che ho riso. Non ricordo la voce di mia sorella. Ogni mattina mi alzo e qualcuno usa il mio corpo per venire qui.»":
+    "Description of damage: “I don't remember the last time I laughed. I don't remember my sister's voice. Every morning I get up and someone uses my body to come here.”",
+  "Il timbro è ancora umido. APPROVATA. Per la prima volta, qualcuno ha riconosciuto il danno.": "The ink is still wet. APPROVED. For the first time, someone has acknowledged the damage.",
+  "Il danno è reale. Il danno sei tu, ed è stato registrato.": "The damage is real. The damage is you, and it has been put on record.",
+  "Corretto. Il danno non sussiste. Prosegua.": "Correct. There is no damage. Carry on.",
+  // --- cartelli dei giorni
+  "Ogni giorno è uguale. Questo non è un problema. Questo è il piano.": "Every day is the same. This is not a problem. This is the plan.",
+  "Ieri era lunedì. Anche oggi.": "Yesterday was Monday. So is today.",
+  "Ti svegli già stanco. Come se la notte fosse un turno in più.": "You wake up already tired. As if the night were one more shift.",
+  "Non ricordi cosa hai fatto ieri. Non importa: era uguale a oggi.": "You don't remember what you did yesterday. It doesn't matter: it was the same as today.",
+  "Qualcuno manca. Nessuno se ne accorge.": "Someone is missing. Nobody notices.",
+  "L'ufficio ti aspetta. L'ufficio aspetta sempre.": "The office is waiting for you. The office is always waiting.",
+  "Il grigio non fa male. È questo il problema.": "The gray doesn't hurt. That's the problem.",
+  "Sei ancora tu?": "Are you still you?",
+  "Ormai è uguale.": "It's all the same now.",
+  "L'ultimo lunedì. Poi si ricomincia.": "The last Monday. Then it starts over.",
+  // --- altoparlante
+  "Buongiorno. Perpetua Assicurazioni ricorda: la puntualità è una forma di rispetto.": "Good morning. Perpetua Assicurazioni reminds you: punctuality is a form of respect.",
+  "Si ricorda al personale che le pause hanno una durata massima di sette minuti.": "Staff are reminded that breaks may last no longer than seven minutes.",
+  "Si ricorda al personale che l'uscita è al termine del turno.": "Staff are reminded that the exit is at the end of the shift.",
+  "Si ricorda al personale che il turno non ha termine. Correzione. Il turno termina alle diciotto.": "Staff are reminded that the shift has no end. Correction. The shift ends at six p.m.",
+  "Si ricorda al personale che è vietato fare domande ai colleghi durante le pause.": "Staff are reminded that asking colleagues questions during breaks is prohibited.",
+  "Si ricorda al personale che fuori non c'è niente. Restate seduti.": "Staff are reminded that there is nothing outside. Remain seated.",
+  "{C}. Ti vediamo.": "{C}. We see you.",
+  "Sorridete. Sorridete. Sorridete.": "Smile. Smile. Smile.",
+  "Si ricorda al personale che nessuno se ne va. Nessuno se n'è mai andato.": "Staff are reminded that no one leaves. No one has ever left.",
+  "Buongiorno. Buongiorno. Buongiorno. Buongiorno.": "Good morning. Good morning. Good morning. Good morning.",
+  // --- notizie sul telefono
+  "Traffico intenso sulla tangenziale, come ogni mattina.": "Heavy traffic on the ring road, like every morning.",
+  "Previsioni: cielo coperto. Anche domani.": "Forecast: overcast. Tomorrow too.",
+  "Indice di fiducia stabile per il dodicesimo mese consecutivo.": "Consumer confidence stable for the twelfth month in a row.",
+  "Dieci trucchi per essere più produttivi prima delle nove.": "Ten tricks to be more productive before 9 a.m.",
+  "Studio: il 64% degli italiani fa un lavoro che non sceglierebbe di nuovo.": "Study: 64% of Italians do a job they would never choose again.",
+  "Il tuo amico Marco ha messo «mi piace» a una foto del 2019.": "Your friend Marco liked a photo from 2019.",
+  // --- sveglia
+  "Sei sveglio prima che la sveglia suoni. Come sempre. Come ogni lunedì.": "You're awake before the alarm goes off. As always. As every Monday.",
+  "La sveglia. Sei e quarantasette. Il corpo si alza da solo; tu arrivi dopo.": "The alarm. Six forty-seven. Your body gets up on its own; you arrive later.",
+  "Sei e quarantasette. Il soffitto ha una crepa che non avevi mai notato.": "Six forty-seven. There's a crack in the ceiling you had never noticed.",
+  "La sveglia suona da un minuto. Forse da un anno.": "The alarm has been ringing for a minute. Maybe for a year.",
+  "Ti alzi. Ti sei già alzato. Ti alzerai.": "You get up. You've already gotten up. You will get up.",
+  "Spegni la sveglia": "Turn off the alarm", "Alza la tapparella": "Raise the blinds", "Armadio": "Wardrobe", "Alzati e vai in bagno": "Get up, go to the bathroom",
+  "Tiri su la tapparella. Fuori è ancora buio. Novembre, sei e quarantotto.": "You pull up the blinds. It's still dark outside. November, six forty-eight.",
+  "Il cielo ha il colore del cemento bagnato. Però l'hai guardato.": "The sky is the color of wet concrete. But you looked at it.",
+  "Tiri su la tapparella. Stamattina, dietro i palazzi, c'è una riga sottile.": "You pull up the blinds. This morning, behind the buildings, there's a thin line.",
+  "Arancione.": "Orange.",
+  "Resti a guardarla un minuto intero. Arriverà il tram, arriverà il lavoro. Ma questo minuto è tuo.": "You stand there watching it for a whole minute. The tram will come, work will come. But this minute is yours.",
+  "L'alba. C'è stata ogni giorno. Eri tu a non esserci.": "The dawn. It was there every day. You were the one who wasn't.",
+  // --- bagno
+  "Bagno. Acqua fredda. Non guardarti allo specchio: non serve, sai già cosa c'è.": "Bathroom. Cold water. Don't look in the mirror: no need, you already know what's there.",
+  "Guardati allo specchio": "Look in the mirror", "Lavati la faccia": "Wash your face",
+  "Acqua fredda sulla faccia. Non ti asciughi bene. Non importa.": "Cold water on your face. You don't dry off properly. It doesn't matter.",
+  "Ti lavi la faccia senza guardarla. Come si lava una tazza.": "You wash your face without looking at it. The way you'd wash a mug.",
+  "Acqua. Asciugamano. Fatto. Il gesto finisce prima che tu te ne accorga.": "Water. Towel. Done. It's over before you even notice.",
+  "Il riflesso ti sorride. Ricambi. È una cosa piccola. È enorme.": "Your reflection smiles at you. You smile back. It's a small thing. It's enormous.",
+  "Nel vetro c'è una testa. Non ha occhi. Non ha bocca.": "There's a head in the glass. It has no eyes. It has no mouth.",
+  "È la tua. Ti guarda lo stesso.": "It's yours. It looks at you anyway.",
+  "Ti guardi. Occhiaie. Barba di due giorni. Una ruga nuova, tra le sopracciglia.": "You look at yourself. Dark circles. Two days of stubble. A new line between your eyebrows.",
+  "Da quanto tempo non ti guardavi davvero?": "How long has it been since you really looked at yourself?",
+  "Ti avvicini al vetro.": "You lean closer to the glass.",
+  "Il riflesso sbatte le palpebre. Un attimo dopo di te.": "Your reflection blinks. A moment after you do.",
+  "Un attimo. Solo un attimo. Te lo sei immaginato.": "A moment. Just a moment. You imagined it.",
+  "Il riflesso ti fissa. Sembra aspettare qualcosa. Non sai ancora cosa.": "Your reflection stares at you. It seems to be waiting for something. You don't know what yet.",
+  "Il riflesso non si muove quando ti muovi.": "Your reflection doesn't move when you move.",
+  "Ehi.": "Hey.",
+  "Mi senti? Sono ancora qui. Sotto.": "Can you hear me? I'm still here. Underneath.",
+  "Ogni mattina mi copri con un altro strato di grigio. Ma io ci sono ancora.": "Every morning you cover me with another layer of gray. But I'm still here.",
+  "Ti sento.": "I hear you.", "Sto impazzendo.": "I'm losing my mind.",
+  "No. Ti stai svegliando. Sembra uguale, ma non lo è.": "No. You're waking up. It feels the same, but it isn't.",
+  "Allora non smettere di guardarmi.": "Then don't stop looking at me.",
+  // --- tram
+  "Il tram 14. Stesso posto. Stesse facce. Ognuno dentro il suo schermo.": "The number 14 tram. Same seat. Same faces. Everyone inside their own screen.",
+  "Il 14. Il sedile è ancora caldo del tuo corpo di ieri.": "The 14. The seat is still warm from yesterday's you.",
+  "Tram. Le fermate scorrono come le pratiche: una, un'altra, un'altra.": "Tram. The stops slide by like claims: one, another, another.",
+  "Alzi gli occhi. Tutti i passeggeri hanno la tua faccia.": "You look up. Every passenger has your face.",
+  "Nessuno sembra sorpreso. Nemmeno tu.": "Nobody seems surprised. Not even you.",
+  "Guarda fuori dal finestrino": "Look out the window", "Guarda i passeggeri": "Look at the passengers", "Guarda il telefono": "Check your phone",
+  "La tua fermata. Non ricordi il viaggio. Non lo ricordi mai.": "Your stop. You don't remember the ride. You never do.",
+  "Il ragazzo di fronte ha i tuoi occhi spenti. La signora accanto ha la tua bocca stanca.": "The boy across from you has your lifeless eyes. The woman beside him has your tired mouth.",
+  "Una ragazza piange in silenzio, il telefono stretto in mano. Nessuno la guarda.": "A girl is crying silently, her phone clutched in her hand. Nobody looks at her.",
+  "Nemmeno tu, di solito.": "Usually, neither do you.",
+  "Le offri un fazzoletto.": "Offer her a tissue.", "Torni al tuo schermo.": "Go back to your screen.",
+  "Lei alza gli occhi, sorpresa. «...Grazie.» Un grazie vero. Di quelli che pesano.": "She looks up, surprised. “...Thank you.” A real thank-you. The kind that carries weight.",
+  "Guardi fuori. Palazzi grigi. Un semaforo. Un cane fermo sul marciapiede che guarda il tram.": "You look outside. Gray buildings. A traffic light. A dog standing still on the sidewalk, watching the tram.",
+  "Fermata Lungolago. Le porte si aprono, e per un istante entra un'aria diversa. Odore d'acqua.": "Lakeside stop. The doors open, and for an instant a different air comes in. The smell of water.",
+  "Undici anni su questo tram. Non sei mai sceso qui.": "Eleven years on this tram. You've never gotten off here.",
+  "Lungolago. Le porte si aprono. Il lago è lì, dietro gli alberi. Ti aspetta senza aspettarti.": "Lakeside. The doors open. The lake is right there, behind the trees. Waiting for you without expecting you.",
+  "Resta seduto.": "Stay in your seat.", "Scendi.": "Get off.",
+  "Le porte si chiudono. Il lago resta dov'è.": "The doors close. The lake stays where it is.",
+  "Lungolago. Sai che c'è. Per oggi ti basta saperlo.": "Lakeside. You know it's there. For today, knowing is enough.",
+  // --- atrio
+  "Entri di corsa. Sei in ritardo di quarantasei minuti. Non ti era mai successo.": "You rush in. You're forty-six minutes late. That has never happened before.",
+  "{C}! In ritardo?": "{C}! Late?", "...Era ora.": "...About time.",
+  "Buongiorno. Badge.": "Good morning. Badge.",
+  "Ogni giorno la stessa frase. Undici anni di «buongiorno, badge».": "The same words every day. Eleven years of “good morning, badge.”",
+  "Buongiorno.": "Good morning.", "Come sta, Osvaldo?": "How are you, Osvaldo?",
+  "Bacheca: dipendenti del mese": "Board: employees of the month", "Badge e ascensore": "Badge in, take the elevator",
+  // --- scrivania
+  "{C}. Ritardo. Quarantasei minuti. Segnato.": "{C}. Late. Forty-six minutes. Noted.",
+  "Lo dice senza guardarti. Come si legge un numero.": "He says it without looking at you. The way you'd read out a number.",
+  "Sul monitor, tra due colonne di Excel, una riga che non hai scritto tu.": "On the monitor, between two Excel columns, a line you didn't write.",
+  "Scrivania 4B-17. Ufficio Sinistri. Le pratiche arrivano, tu le controlli, le timbri. Arrivano altre pratiche.": "Desk 4B-17. Claims Department. The claims come in, you check them, you stamp them. More claims come in.",
+  "Lavora alle pratiche": "Work on the claims", "Pianta di Marta": "Marta's plant", "Guarda la finestra": "Look at the window",
+  "Porta in fondo al corridoio": "Door at the end of the hall", "Orologio": "Clock",
+  "Zero errori. Nessuno se ne accorge. Nessuno se ne accorge mai.": "Zero errors. Nobody notices. Nobody ever notices.",
+  "Ti avvicini alla finestra. Non è una finestra. È una fotografia di una finestra, incollata al muro.": "You go up to the window. It isn't a window. It's a photograph of a window, glued to the wall.",
+  "Gli angoli si stanno staccando.": "The corners are peeling.",
+  "Fuori: un parcheggio, un cielo bianco, un piccione immobile sul cornicione.": "Outside: a parking lot, a white sky, a pigeon motionless on the ledge.",
+  "Ma è fuori. Esiste ancora.": "But it's outside. It still exists.",
+  "Le nove. Sono le nove da quando sei arrivato. Le lancette tremano, ma non si muovono.": "Nine o'clock. It's been nine o'clock since you arrived. The hands tremble, but they don't move.",
+  "Le lancette si muovono lentissime. Ogni minuto pesa un chilo.": "The hands crawl. Every minute weighs a ton.",
+  "In fondo al corridoio, una porta rossa. USCITA DI SICUREZZA.": "At the end of the hall, a red door. EMERGENCY EXIT.",
+  "Undici anni qui e non l'hai mai vista aperta. La maniglia non gira.": "Eleven years here and you've never seen it open. The handle won't turn.",
+  "Infili la chiave. Gira a metà. Poi si blocca.": "You slide the key in. It turns halfway. Then it sticks.",
+  "Infili la chiave. Gira fino in fondo. Clac.": "You slide the key in. It turns all the way. Click.",
+  "Apri la porta.": "Open the door.", "Non ancora.": "Not yet.",
+  // --- macchinetta
+  "Pausa. Sette minuti. Il distributore ronza come una preghiera.": "Break. Seven minutes. The vending machine hums like a prayer.",
+  "Davanti al distributore c'è... qualcosa. Ha la cravatta di Gianni. Ha la forma di Gianni.": "In front of the machine there's... something. It has Gianni's tie. It has Gianni's shape.",
+  "Non respira. Tiene in mano un bicchierino vuoto.": "It isn't breathing. It's holding an empty paper cup.",
+  "Più tardi chiederai di lui. «Gianni?» ti risponderanno. «Quale Gianni?»": "Later you'll ask about him. “Gianni?” they'll answer. “Which Gianni?”",
+  "Oh, {N}! Ieri sera ho fatto la carbonara. Quella vera. Mi tremavano le mani.": "Oh, {N}! Last night I made carbonara. The real thing. My hands were shaking.",
+  "Ho chiamato un amico di Rimini. Un ristorante cerca un cuoco per l'estate. Ci sto pensando. Ci sto pensando davvero.": "I called a friend in Rimini. A restaurant's looking for a cook for the summer. I'm thinking about it. I'm really thinking about it.",
+  "Sai che ho ricominciato a cantare sotto la doccia? Mia moglie dice che sono stonato. Ma ride.": "You know I've started singing in the shower again? My wife says I'm tone-deaf. But she laughs.",
+  "Oh, {N}. Un altro giorno, eh?": "Oh, {N}. Another day, huh?",
+  "Eh già.": "Yeah.", "Tiriamo avanti.": "Getting by.", "Gianni... tu sei felice?": "Gianni... are you happy?",
+  "Ma che ci vuoi fare. Sabato c'è la partita, almeno.": "Well, what can you do. There's the game on Saturday, at least.",
+  "Le stesse parole di ieri. La stessa pausa prima di «almeno».": "The same words as yesterday. The same pause before “at least.”",
+  "Ti chiedi se Gianni abbia mai visto una partita. Ti chiedi se esista, un sabato.": "You wonder if Gianni has ever actually watched a game. You wonder if Saturdays exist at all.",
+  "Gianni smette di mescolare il caffè.": "Gianni stops stirring his coffee.",
+  "...Felice?": "...Happy?", "Che domanda è.": "What kind of question is that.",
+  "Un silenzio lungo. Il distributore ronza.": "A long silence. The machine hums.",
+  "Sai che facevo il cuoco? A Rimini, d'estate. Mi alzavo alle cinque e cantavo. Cantavo, {N}.": "Did you know I used to be a cook? In Rimini, summers. I'd get up at five and sing. I sang, {N}.",
+  "Poi il mutuo. Il posto fisso. «Gianni, sistemati.» E mi sono sistemato.": "Then the mortgage. The steady job. “Gianni, settle down.” So I settled.",
+  "...No. Non sono felice. Ma grazie di avermelo chiesto. Nessuno me lo chiedeva da... boh. Da mai.": "...No. I'm not happy. But thanks for asking. Nobody's asked me that in... I dunno. Ever.",
+  "Prendi un caffè": "Get a coffee", "Un bicchiere d'acqua": "A glass of water", "Bacheca del frigo": "The fridge board", "Torna alla scrivania": "Back to your desk",
+  "Caffè. Sa di carta bruciata. Lo bevi lo stesso.": "Coffee. It tastes like burnt paper. You drink it anyway.",
+  "Prendi un bicchiere d'acqua invece del caffè. Una cosa minuscola.": "You take a glass of water instead of coffee. A tiny thing.",
+  "Eppure, per un attimo, hai la sensazione che il distributore ti stia guardando.": "And yet, for a moment, you get the feeling the machine is watching you.",
+  "Lo attacchi al frigo. Qualcuno, in un altro lunedì, lo leggerà.": "You stick it on the fridge. Someone, on another Monday, will read it.",
+  // --- riunione
+  "Bene. Obiettivo della settimana: più pratiche della settimana scorsa.": "Right. This week's target: more claims than last week.",
+  "La settimana scorsa l'obiettivo era: più pratiche della settimana prima.": "Last week's target was: more claims than the week before.",
+  "Vedete la coerenza? Domande? Nessuna. Ottimo.": "You see the consistency? Questions? None. Excellent.",
+  "I numeri sono stabili. Stabile è bello.": "The numbers are stable. Stable is beautiful.",
+  "Stabile vuol dire che domani sarà come oggi. E dopodomani come domani.": "Stable means tomorrow will be like today. And the day after, like tomorrow.",
+  "Un applauso a noi.": "Let's give ourselves a round of applause.",
+  "Qualcuno è stato visto guardare fuori dalla finestra.": "Someone was seen looking out of the window.",
+  "Ricordo a tutti che le finestre sono decorative.": "May I remind everyone that the windows are decorative.",
+  "Il fuori è un costo. Non ce lo possiamo permettere.": "The outside is a cost. We cannot afford it.",
+  "Siamo una famiglia.": "We are a family.",
+  "Una famiglia non se ne va. Una famiglia resta. Seduta.": "A family doesn't leave. A family stays. Seated.",
+  "Seduta. Seduta. Seduta.": "Seated. Seated. Seated.",
+  "Riunione.": "Meeting.", "Riunione riunione.": "Meeting meeting.", "Fine della riunione. Inizio della riunione.": "End of meeting. Start of meeting.",
+  "Applaudono tutti. Lo stesso ritmo. Come un solo paio di mani.": "Everyone applauds. The same rhythm. Like a single pair of hands.",
+  "Annuisci.": "Nod.", "Alza la mano.": "Raise your hand.",
+  "Annuisci. Annuiscono tutti. Sei teste che dicono sì allo stesso niente.": "You nod. Everyone nods. Six heads saying yes to the same nothing.",
+  "Alzi la mano. Sei teste si girano verso di te. Tutte insieme. Nello stesso istante.": "You raise your hand. Six heads turn toward you. All together. In the same instant.",
+  "...Sì, {C}?": "...Yes, {C}?",
+  "A cosa serve? Tutto questo. A cosa serve?": "What's the point? All of this. What is it for?",
+  "Serve. Serve a... Le pratiche servono a...": "It's for. It's for... The claims are for...",
+  "Le pratiche servono a generare altre pratiche. Così. Così. Così.": "The claims are for generating more claims. Like so. Like so. Like so.",
+  "Per un istante la stanza trattiene il fiato. Poi qualcuno tossisce, e la riunione riprende come se niente fosse.": "For an instant the room holds its breath. Then someone coughs, and the meeting carries on as if nothing happened.",
+  "Ma l'hai detto. Ad alta voce. È rimasto nell'aria, come un odore che non va via.": "But you said it. Out loud. It's still hanging in the air, like a smell that won't go away.",
+  // --- pomeriggio
+  "Pomeriggio. La luce dei neon non cambia mai. Il pomeriggio è una mattina più stanca.": "Afternoon. The neon light never changes. The afternoon is just a more tired morning.",
+  "Pomeriggio. Il pranzo era una vaschetta. La vaschetta era uguale a ieri.": "Afternoon. Lunch came in a plastic tray. The same tray as yesterday.",
+  "Le due. Il sonno ti pesa sulle palpebre come una pratica sulle altre.": "Two o'clock. Sleep weighs on your eyelids like one claim stacked on the others.",
+  "Le diciotto. Spegni il monitor. Resta acceso un secondo più del dovuto, come se volesse dirti qualcosa.": "Six p.m. You switch off the monitor. It stays lit a second too long, as if it wanted to tell you something.",
+  // --- sera
+  "Casa. Cena: lo stesso piatto riscaldato. La TV dice le stesse cose con facce diverse.": "Home. Dinner: the same reheated dish. The TV says the same things with different faces.",
+  "Casa. Le chiavi nella stessa ciotola. Il cappotto sulla stessa sedia.": "Home. Keys in the same bowl. Coat on the same chair.",
+  "Casa. Il silenzio ha il volume del frigorifero.": "Home. The silence is exactly as loud as the fridge.",
+  "Alle nove e un quarto il telefono vibra. Come ogni sera.": "At a quarter past nine your phone buzzes. Like every evening.",
+  "Lascia squillare.": "Let it ring.", "Rispondi.": "Answer.",
+  "Guarda la TV": "Watch TV", "Guarda le finestre degli altri": "Look at the neighbors' windows", "Vai a dormire": "Go to sleep",
+  "Un quiz. Un uomo vince una cucina. Il pubblico applaude a comando.": "A quiz show. A man wins a kitchen. The audience applauds on cue.",
+  "Un telegiornale. Le notizie di oggi sono quelle di ieri con un'altra cravatta.": "The news. Today's stories are yesterday's, wearing a different tie.",
+  "Pubblicità di un materasso: «Dormi meglio, rendi di più».": "A mattress commercial: “Sleep better, perform better.”",
+  "Le finestre degli altri. In ognuna, una luce azzurra. Uno schermo. Una persona sola.": "The neighbors' windows. In each one, a blue light. A screen. A person alone.",
+  "Quanti siete? Quanti lunedì ci sono, là fuori, uguali al tuo?": "How many of you are there? How many Mondays are out there, identical to yours?",
+  "Chiudi gli occhi. Il buio ha il colore della moquette dell'ufficio.": "You close your eyes. The dark is the color of the office carpet.",
+  "Chiudi gli occhi. Domani è lunedì.": "You close your eyes. Tomorrow is Monday.",
+  // --- Marta
+  "Marta digita. Digita. Le dita si muovono anche quando lo schermo si spegne.": "Marta types. And types. Her fingers keep moving even when the screen goes dark.",
+  "Marta non alza gli occhi dallo schermo.": "Marta doesn't look up from her screen.",
+  "Ciao.": "Hi.",
+  "Sulla sua scrivania, una piantina sta morendo. Nessuno la annaffia da settimane.": "On her desk, a little plant is dying. Nobody has watered it in weeks.",
+  "Sai che dipingevo? Acquerelli. Avevo fatto una mostra, una volta, in una libreria. Sei persone. Mia madre ha pianto.": "Did you know I used to paint? Watercolors. I had an exhibition once, in a bookshop. Six people came. My mother cried.",
+  "Poi ho smesso. Non so nemmeno quando. Un giorno ho guardato i colori e mi sembravano tutti uguali.": "Then I stopped. I don't even know when. One day I looked at the colors and they all seemed the same.",
+  "{N}... tu stai cercando un'uscita, vero?": "{N}... you're looking for a way out, aren't you?",
+  "Lo vedo. Da come guardi la porta in fondo al corridoio.": "I can tell. From the way you look at the door at the end of the hall.",
+  "Se la trovi... non andartene da solo. Ti prego.": "If you find it... don't go alone. Please.",
+  "Non me ne vado senza di te.": "I'm not leaving without you.", "Non so di cosa parli.": "I don't know what you're talking about.",
+  "Va bene. Fa' finta. Ma io ci sono.": "Fine. Pretend. But I'm here.",
+  "Ieri ho comprato un pennello. Non l'ho ancora aperto. Ma l'ho comprato.": "Yesterday I bought a paintbrush. I haven't unwrapped it yet. But I bought it.",
+  "Quando sei pronto, io ci sono. Ho il pennello in borsa.": "Whenever you're ready, I'm here. I've got the brush in my bag.",
+  "Ciao, {N}.": "Hi, {N}.",
+  // --- pianta
+  "La pianta è verde. Assurdamente verde, qui dentro. Come un errore di stampa.": "The plant is green. Absurdly green, in here. Like a printing error.",
+  "Una piccola pianta grassa, quasi grigia. La terra è secca come cenere.": "A small succulent, almost gray. The soil is dry as ash.",
+  "Servirebbe un po' d'acqua. Al distributore, forse.": "It could use some water. From the vending machine, maybe.",
+  "Versi il bicchiere d'acqua nel vaso. La terra secca la beve tutta, avida, in un secondo.": "You pour the glass of water into the pot. The dry soil drinks it all, greedily, in a second.",
+  "Marta non se ne accorge. Non ancora.": "Marta doesn't notice. Not yet.",
+  "Annaffi di nuovo. Stavolta qualcosa cambia. Una foglia si solleva. Poi un'altra.": "You water it again. This time something changes. A leaf lifts. Then another.",
+  "Marta guarda la pianta. Poi guarda te. È la prima volta che ti guarda.": "Marta looks at the plant. Then she looks at you. It's the first time she has ever looked at you.",
+  "L'hai annaffiata tu?": "Did you water it?",
+  "Era di mia madre. Pensavo fosse morta. Pensavo fosse morta da mesi.": "It was my mother's. I thought it was dead. I thought it had been dead for months.",
+  "Sorride. Non sapevi che sapesse farlo.": "She smiles. You didn't know she could.",
+  // --- Osvaldo
+  "Osvaldo ti guarda come se avessi parlato in un'altra lingua.": "Osvaldo looks at you as if you'd spoken a foreign language.",
+  "Come sto?": "How am I?",
+  "Sono trentun anni che sto dietro questo bancone. Lei è il primo che me lo chiede.": "Thirty-one years I've been behind this desk. You're the first one who's ever asked.",
+  "Sto. Grazie, {N}.": "Getting by. Thank you, {N}.",
+  "Mia moglie, la Rina, voleva vedere la Grecia. Il mare blu, quello delle cartoline.": "My wife, Rina, wanted to see Greece. The blue sea, like on the postcards.",
+  "Ogni estate le dicevo: l'anno prossimo, Rina. L'anno prossimo.": "Every summer I told her: next year, Rina. Next year.",
+  "Guarda la porta girevole, lontano.": "He gazes at the revolving door, somewhere far away.",
+  "Poi l'anno prossimo è finito.": "Then we ran out of next years.",
+  "Lei ultimamente ha qualcosa negli occhi. Non so come dirlo.": "Lately you've got something in your eyes. I don't know how to put it.",
+  "Colore.": "Color.",
+  "Ti mette in mano una chiave piccola, rossa di ruggine.": "He presses a small key into your hand, red with rust.",
+  "La porta rossa. In fondo al corridoio, al quarto. Uscita di sicurezza.": "The red door. End of the hall, fourth floor. Emergency exit.",
+  "Nessuno la usa. Nessuno ricorda nemmeno che c'è.": "Nobody uses it. Nobody even remembers it's there.",
+  "Io sono troppo vecchio per uscire. Lei no.": "I'm too old to get out. You're not.",
+  "Lei mi guarda come uno che cerca qualcosa.": "You look at me like someone who's searching for something.",
+  "Quando l'avrà trovato, torni a chiedermi come sto.": "When you've found it, come back and ask me how I am.",
+  // --- Chiara
+  "Rispondi. Dall'altra parte non c'è Chiara. C'è un ronzio. Il ronzio dei neon.": "You answer. Chiara isn't on the other end. There's a hum. The hum of neon lights.",
+  "Domani alle otto e trenta, {C}. Domani alle otto e trenta. Domani.": "Tomorrow at eight thirty, {C}. Tomorrow at eight thirty. Tomorrow.",
+  "Pronto? {N}? ...Hai risposto. Oddio. Pensavo avessi cambiato numero.": "Hello? {N}? ...You picked up. Oh my God. I thought you'd changed your number.",
+  "Niente, niente. Volevo solo sentirti. La mamma chiede di te. Io chiedo di te.": "Nothing, nothing. I just wanted to hear your voice. Mom keeps asking about you. I keep asking about you.",
+  "Come stai? Davvero, però.": "How are you? I mean really.",
+  "Bene. Tutto bene.": "Fine. Everything's fine.", "Non lo so. Male, credo.": "I don't know. Bad, I think.",
+  "Dici sempre così.": "You always say that.",
+  "Una pausa. La senti respirare.": "A pause. You can hear her breathing.",
+  "Ti richiamo domani. Rispondi, eh.": "I'll call you tomorrow. Pick up, okay?",
+  "...Grazie. Per avermelo detto, intendo.": "...Thank you. For telling me, I mean.",
+  "Non devi aggiustare niente stasera. Basta che rispondi, quando chiamo. Va bene?": "You don't have to fix anything tonight. Just pick up when I call. Okay?",
+  "Ehi. Due volte in una settimana. È un record.": "Hey. Twice in one week. That's a record.",
+  "Sai cosa ho trovato? Una foto. Tu, sedici anni, con quella chitarra rossa. Suonavi sempre la stessa canzone, mi facevi impazzire.": "Guess what I found? A photo. You, sixteen, with that red guitar. You always played the same song, it drove me crazy.",
+  "Ce l'hai ancora? Scommetto che è in fondo all'armadio.": "Do you still have it? I bet it's at the back of your wardrobe.",
+  "Domenica vieni a pranzo da me? E non dire «vediamo». Dì sì.": "Will you come over for lunch on Sunday? And don't say “we'll see.” Say yes.",
+  "Sì.": "Yes.", "Vediamo.": "We'll see.",
+  "Sì? ...Ok. Ok! Ti aspetto. Davvero, eh.": "Yes? ...Okay. Okay! I'll be waiting. I mean it.",
+  "Vediamo. Va bene. Ti aspetto lo stesso.": "We'll see. Fine. I'll be waiting anyway.",
+  "Sono io. Niente, volevo darti la buonanotte.": "It's me. Nothing, I just wanted to say good night.",
+  "Ehi. Oggi ho pensato a te. Tutto qui.": "Hey. I thought about you today. That's all.",
+  "Ci sei? Bene. Mi basta.": "You there? Good. That's enough for me.",
+  // --- chitarra, lago
+  "Dietro i cappotti, in una custodia piena di polvere: la chitarra rossa.": "Behind the coats, in a case thick with dust: the red guitar.",
+  "Non ricordavi più di saperlo fare. Le mani sì.": "You'd forgotten you knew how. Your hands hadn't.",
+  "Scendi. Le porte si chiudono alle tue spalle e il tram se ne va, senza di te.": "You get off. The doors close behind you and the tram pulls away, without you.",
+  "Il lago è grande. Più grande di come lo immaginavi. Il sole basso lo accende tutto.": "The lake is big. Bigger than you imagined. The low sun sets all of it alight.",
+  "Ti siedi su una panchina. Non c'è nessuna pratica da timbrare. L'acqua non chiede niente.": "You sit on a bench. There are no claims to stamp. The water asks for nothing.",
+  "Resti lì. Dieci minuti. Venti. Un uccello si posa vicino a te e non ha paura.": "You stay there. Ten minutes. Twenty. A bird lands near you and isn't afraid.",
+  "Arriverai in ritardo. Per la prima volta in undici anni, non ti importa.": "You're going to be late. For the first time in eleven years, you don't care.",
+  // --- finale
+  "Prima di aprire, ti volti verso la scrivania di Marta.": "Before opening it, you turn toward Marta's desk.",
+  "Marta. Vieni.": "Marta. Come with me.", "Vai da solo.": "Go alone.",
+  "...Adesso?": "...Now?", "Ok. Ok. Prendo solo il pennello.": "Okay. Okay. Let me just grab my brush.",
+  "Marta ti guarda andare. Non dice niente. Non serve.": "Marta watches you go. She says nothing. She doesn't need to.",
+  "La porta si chiude alle tue spalle. Scale di cemento. Una luce verde. Un cartello: PIANO 4.": "The door closes behind you. Concrete stairs. A green light. A sign: FLOOR 4.",
+  "Da sopra, attutito, il ronzio dell'ufficio. Ti chiama.": "From above, muffled, the hum of the office. It's calling you.",
+  "{C}. Dove crede di andare? Ha una pratica aperta.": "{C}. Where do you think you're going? You have an open claim.",
+  "Vai, {N}! Vai e non voltarti!": "Go, {N}! Go and don't look back!",
+  "Dai, torna su. Che ci vuoi fare. Tiriamo avanti.": "Come on, come back up. What can you do. We get by.",
+  "Si ricorda al personale che fuori non c'è niente.": "Staff are reminded that there is nothing outside.",
+  "Torna indietro. Lì almeno sai cosa succede. Lì non fa male niente.": "Go back. At least there you know what's going to happen. Nothing hurts there.",
+  "Ti abbiamo dato tutto. Un posto. Un orario. Un lunedì per sempre.": "We gave you everything. A desk. A schedule. A Monday that lasts forever.",
+  "Non ascoltarli. Ti tengo la mano. Scegli.": "Don't listen to them. I'm holding your hand. Choose.",
+  "Sei stanco. Siediti. Solo un attimo.": "You're tired. Sit down. Just for a moment.",
+  "La porta a sinistra.": "The door on the left.", "La porta a destra.": "The door on the right.", "Torna su. Torna alla scrivania.": "Go back up. Back to your desk.",
+  "Su una delle due porte c'è un segno. Il tuo colore.": "There's a mark on one of the two doors. Your color.",
+  "Due porte uguali. Nessun segno. Solo grigio.": "Two identical doors. No mark. Only gray.",
+  "Risali. Il corridoio. La scrivania. La sedia è ancora calda.": "You climb back up. The hallway. The desk. The chair is still warm.",
+  "Scendi. Il cartello dice ancora PIANO 4, ma le scale sono diverse. Più chiare.": "You go down. The sign still says FLOOR 4, but the stairs are different. Lighter.",
+  "Scendi. L'ultima rampa. In fondo, una porta a vetri. Luce.": "You go down. The last flight. At the bottom, a glass door. Light.",
+  "PIANO 4. Di nuovo. Il cartello sembra più grande. Più vicino.": "FLOOR 4. Again. The sign seems bigger. Closer.",
+  "Piano terra. L'atrio è vuoto. È presto: il palazzo non si è ancora svegliato.": "Ground floor. The lobby is empty. It's early: the building hasn't woken up yet.",
+  "Ce l'ha fatta.": "You made it.",
+  "Grazie, Osvaldo.": "Thank you, Osvaldo.", "Venga anche lei.": "Come with me.",
+  "Io? Ah. Magari l'anno prossimo...": "Me? Ah. Maybe next year...",
+  "Si ferma. Ci pensa.": "He stops. He thinks about it.",
+  "...No. Ha ragione. Quest'anno. Quest'anno vado al mare.": "...No. You're right. This year. This year I'm going to the sea.",
+  "Vada, {N}. Io resto un altro po'. Qualcuno deve dire buongiorno.": "Go, {N}. I'll stay a little longer. Someone has to say good morning.",
+  // --- finali
+  "Fuori è mattina. Non sai che ore sono. Per la prima volta da anni, non ti importa.": "Outside, it's morning. You don't know what time it is. For the first time in years, you don't care.",
+  "L'aria è fredda. Ha un odore. Le cose hanno di nuovo un odore.": "The air is cold. It has a smell. Things have a smell again.",
+  "Guarda il cielo. Ha... dei colori. Dei colori veri.": "Look at the sky. It has... colors. Real colors.",
+  "Mi servirà un pennello più grande.": "I'm going to need a bigger brush.",
+  "Prendi il telefono. Chiara risponde al primo squillo.": "You take out your phone. Chiara picks up on the first ring.",
+  "{N}? È successo qualcosa? Stai bene?": "{N}? Did something happen? Are you okay?",
+  "Sto meglio. Domenica vengo. Davvero.": "I'm better. I'll come on Sunday. Really.",
+  "...Ti aspetto. Porta la chitarra.": "...I'll be waiting. Bring the guitar.",
+  "Prendi il telefono. Componi il numero di Chiara.": "You take out your phone. You dial Chiara's number.",
+  "Questa volta sei tu a chiamare.": "This time, you're the one calling.",
+  "Non sai ancora dove andare. Va bene così. Per oggi, basta essere uscito.": "You don't know where to go yet. That's okay. For today, getting out is enough.",
+  "Non ricordi quando hai smesso di alzarti dalla sedia. Forse non hai mai smesso. Forse sei sempre stato seduto qui.": "You don't remember when you stopped getting up from the chair. Maybe you never stopped. Maybe you've always been sitting here.",
+  "Le mani sono fredde. La pelle ha il colore della moquette. Non fa male. Non fa niente.": "Your hands are cold. Your skin is the color of the carpet. It doesn't hurt. It doesn't do anything.",
+  "Benvenuto, {C}. Ora fai parte del Processo.": "Welcome, {C}. You are now part of the Process.",
+  "Il lunedì dopo, un ragazzo nuovo si ferma accanto alla tua scrivania. «Scusi... è libera la 4B-17?»": "The following Monday, a new hire stops by your desk. “Excuse me... is 4B-17 free?”",
+  "Nessuno risponde. Nessuno risponde mai.": "Nobody answers. Nobody ever answers.",
+  "La sveglia suona. 06:47. Hai la sensazione di aver già vissuto tutto questo. Ogni gesto. Ogni parola. Qualcosa, però, ti è rimasto addosso.": "The alarm goes off. 06:47. You have the feeling you've lived through all of this before. Every gesture. Every word. But something has stuck to you.",
+};
+const T = s => (LANG === 'en' && typeof s === 'string' && Object.prototype.hasOwnProperty.call(EN, s)) ? EN[s] : s;
+const L = (it, en) => (LANG === 'en' ? en : it);
+const LOC = () => (LANG === 'en' ? 'en-GB' : 'it-IT');
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-en]').forEach(el => {
+    if (el.dataset.it === undefined) el.dataset.it = el.innerHTML;
+    el.innerHTML = LANG === 'en' ? el.dataset.en : el.dataset.it;
+  });
+  $('gtrP').textContent = T('La chitarra rossa. Le corde sono vecchie, ma tengono. Le dita ricordano prima di te.');
+  $('prism').title = L('Frammenti di colore', 'Color fragments');
+  $('mLang').textContent = L('LINGUA: ITALIANO', 'LANGUAGE: ENGLISH');
+  document.querySelectorAll('#langSel button').forEach(b => b.classList.toggle('on', b.dataset.l === LANG));
+}
+function setLang(l) {
+  if (l !== 'it' && l !== 'en') return;
+  LANG = l; LS.set('grigio_lang', l); applyStatic(); bgCache.clear(); updateHUD(); renderTitleStats();
+}
+
+
+// ---------------------------------------------------------------- STATE
+const COLORS = [
+  { k: 'rosso',   n: 'ROSSO',   t: 'Il danno',     c: '#e0473a', ne: 'RED', te: 'The damage' },
+  { k: 'arancio', n: 'ARANCIO', t: "L'alba",       c: '#f08a2c', ne: 'ORANGE', te: 'The dawn' },
+  { k: 'giallo',  n: 'GIALLO',  t: 'La domanda',   c: '#f2d03b', ne: 'YELLOW', te: 'The question' },
+  { k: 'verde',   n: 'VERDE',   t: 'La pianta',    c: '#5cc46a', ne: 'GREEN', te: 'The plant' },
+  { k: 'blu',     n: 'BLU',     t: 'Il lago',      c: '#3d8fe0', ne: 'BLUE', te: 'The lake' },
+  { k: 'indaco',  n: 'INDACO',  t: 'Lo specchio',  c: '#6a5fd8', ne: 'INDIGO', te: 'The mirror' },
+  { k: 'viola',   n: 'VIOLA',   t: 'La musica',    c: '#b45ad6', ne: 'VIOLET', te: 'The music' },
+];
+const cn = c => L(c.n, c.ne), ct = c => L(c.t, c.te);
+const CFG = { on: true, maxDays: 10, grayPerDay: 10, needColors: 5, radio: null, broadcast: '', event: '' };
+function freshState() {
+  return { v: 3, name: 'LUCA', day: 1, phase: 0, gray: 15, colors: {}, f: {}, cycle: 0, late: false, water: false,
+    errors: 0, startedAt: Date.now() };
+}
+let S = freshState();
+const nColors = () => Object.keys(S.colors).length;
+const has = k => !!S.colors[k];
+const F = (k, v) => (v === undefined ? S.f[k] : (S.f[k] = v));
+const inc = k => (S.f[k] = (S.f[k] || 0) + 1);
+const Name = () => S.name.charAt(0) + S.name.slice(1).toLowerCase();
+
+// ---------------------------------------------------------------- LAYOUT
+const stage = $('stage'), cw = $('world'), cc = $('color');
+const ctx = cw.getContext('2d'), cx = cc.getContext('2d');
+let Q = 1, stageRect = { x: 0, y: 0, w: VW, h: VH };
+function layout() {
+  const W = innerWidth, H = innerHeight;
+  const portrait = H > W * 1.15;
+  let s = Math.min(W / VW, H / VH);
+  let w = VW * s, h = VH * s, x = (W - w) / 2, y = (H - h) / 2;
+  if (portrait) { y = Math.max(54, H * 0.16); }
+  stage.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+  stageRect = { x, y, w, h };
+  const dl = document.getElementById('dlg');
+  if (portrait) { dl.style.top = (y + h + 14) + 'px'; dl.style.bottom = 'auto'; } else { dl.style.top = ''; dl.style.bottom = ''; }
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  Q = clamp(s * dpr, 0.45, 1.15);
+  for (const c of [cw, cc]) { c.width = Math.round(VW * Q); c.height = Math.round(VH * Q); }
+  bgCache.clear();
+}
+addEventListener('resize', () => { clearTimeout(layout._t); layout._t = setTimeout(layout, 120); });
+
+// ---------------------------------------------------------------- DRAW HELPERS
+function poly(c, pts, fill, stroke, lw = 1) {
+  c.beginPath(); c.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
+  c.closePath(); if (fill) { c.fillStyle = fill; c.fill(); }
+  if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw; c.stroke(); }
+}
+function rect(c, x, y, w, h, fill) { c.fillStyle = fill; c.fillRect(x, y, w, h); }
+function rrect(c, x, y, w, h, r, fill, stroke, lw = 1) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw; c.stroke(); }
+}
+function lin(c, x0, y0, x1, y1, stops) { const g = c.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, col]) => g.addColorStop(o, col)); return g; }
+function rad(c, x, y, r0, r1, stops) { const g = c.createRadialGradient(x, y, r0, x, y, r1); stops.forEach(([o, col]) => g.addColorStop(o, col)); return g; }
+function ell(c, x, y, rx, ry, fill) { c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), 0, 0, 7); c.fillStyle = fill; c.fill(); }
+function line(c, x0, y0, x1, y1, col, w = 1) { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.strokeStyle = col; c.lineWidth = w; c.stroke(); }
+function text(c, s, x, y, font, fill, align = 'center') { c.font = font; c.fillStyle = fill; c.textAlign = align; c.textBaseline = 'middle'; c.fillText(T(s), x, y); }
+
+// one-point perspective room. B = back wall rect. t in [0..1] front→back
+function room(B) {
+  const fr = t => ({ x0: lerp(0, B.x0, t), y0: lerp(0, B.y0, t), x1: lerp(VW, B.x1, t), y1: lerp(VH, B.y1, t) });
+  const P = (u, v, t) => { const f = fr(t); return [lerp(f.x0, f.x1, u), lerp(f.y0, f.y1, v)]; };
+  const sc = t => lerp(1, (B.x1 - B.x0) / VW, t);
+  return { B, fr, P, sc };
+}
+function drawRoom(c, R, o) {
+  const { B } = R;
+  poly(c, [0, 0, VW, 0, B.x1, B.y0, B.x0, B.y0], o.ceil);
+  poly(c, [0, VH, VW, VH, B.x1, B.y1, B.x0, B.y1], o.floor);
+  poly(c, [0, 0, B.x0, B.y0, B.x0, B.y1, 0, VH], o.lwall || o.wall);
+  poly(c, [VW, 0, B.x1, B.y0, B.x1, B.y1, VW, VH], o.rwall || o.wall);
+  rect(c, B.x0, B.y0, B.x1 - B.x0, B.y1 - B.y0, o.back || o.wall);
+  // shading
+  c.fillStyle = lin(c, 0, 0, 0, VH, [[0, 'rgba(0,0,0,.25)'], [.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.35)']]);
+  c.fillRect(0, 0, VW, VH);
+  if (o.floorLines) {
+    c.strokeStyle = o.floorLines; c.lineWidth = 1;
+    for (let i = 0; i <= 16; i++) { const u = i / 16; const a = R.P(u, 1, 0), b = R.P(u, 1, 1); line(c, a[0], a[1], b[0], b[1], o.floorLines); }
+    for (let i = 1; i < 12; i++) { const t = 1 - Math.pow(1 - i / 12, 2.2); const a = R.P(0, 1, t), b = R.P(1, 1, t); line(c, a[0], a[1], b[0], b[1], o.floorLines); }
+  }
+  // corner lines
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2;
+  [[0, 0, B.x0, B.y0], [VW, 0, B.x1, B.y0], [0, VH, B.x0, B.y1], [VW, VH, B.x1, B.y1]].forEach(l => line(c, ...l, 'rgba(0,0,0,.35)', 2));
+}
+function ceilLight(c, R, u0, u1, t0, t1, on = 1) {
+  const a = R.P(u0, 0, t0), b = R.P(u1, 0, t0), d = R.P(u1, 0, t1), e = R.P(u0, 0, t1);
+  const yo = 6 * R.sc(t0);
+  poly(c, [a[0], a[1] + yo, b[0], b[1] + yo, d[0], d[1] + yo, e[0], e[1] + yo], on > .5 ? `rgba(240,246,240,${.55 + on * .45})` : '#3a3c3c');
+}
+
+// ---------------------------------------------------------------- CHARACTERS
+// bust: head center (x,y), scale s. o: skin, hair, style, shirt, tie, glasses, fade, look, cap, mirror, eyes
+function bust(c, x, y, s, o = {}) {
+  const r = 38 * s, fade = clamp(o.fade || 0);
+  const skin = o.skin || '#c9a58c', shirt = o.shirt || '#5d6670';
+  c.save();
+  // torso
+  c.beginPath();
+  c.moveTo(x - r * .55, y + r * .95);
+  c.bezierCurveTo(x - r * 2.2, y + r * 1.25, x - r * 2.4, y + r * 2.2, x - r * 2.5, y + r * 4.2);
+  c.lineTo(x + r * 2.5, y + r * 4.2);
+  c.bezierCurveTo(x + r * 2.4, y + r * 2.2, x + r * 2.2, y + r * 1.25, x + r * .55, y + r * .95);
+  c.closePath(); c.fillStyle = shirt; c.fill();
+  // collar & tie
+  if (o.jacket) {
+    poly(c, [x - r * .5, y + r, x - r * .1, y + r * 2.6, x - r * .35, y + r * 4.2, x - r * 2.5, y + r * 4.2, x - r * 2.2, y + r * 1.4], o.jacket);
+    poly(c, [x + r * .5, y + r, x + r * .1, y + r * 2.6, x + r * .35, y + r * 4.2, x + r * 2.5, y + r * 4.2, x + r * 2.2, y + r * 1.4], o.jacket);
+  }
+  poly(c, [x - r * .5, y + r * .9, x, y + r * 1.5, x + r * .5, y + r * .9, x + r * .3, y + r * 1.25, x, y + r * 1.2, x - r * .3, y + r * 1.25], o.collar || '#d8d8d2');
+  if (o.tie) poly(c, [x - r * .14, y + r * 1.3, x + r * .14, y + r * 1.3, x + r * .22, y + r * 3.2, x, y + r * 3.5, x - r * .22, y + r * 3.2], o.tie);
+  // neck
+  rect(c, x - r * .32, y + r * .55, r * .64, r * .55, shade(skin, -.18));
+  // head
+  ell(c, x, y, r * .82, r, skin);
+  // ears
+  ell(c, x - r * .8, y + r * .1, r * .14, r * .22, shade(skin, -.08)); ell(c, x + r * .8, y + r * .1, r * .14, r * .22, shade(skin, -.08));
+  // face features (fade toward blank)
+  if (fade < 1) {
+    c.globalAlpha = 1 - fade;
+    const ey = o.look === 'down' ? y + r * .12 : y + r * .02;
+    const dx = o.dir ? o.dir * r * .12 : 0;
+    if (o.look === 'down') {
+      line(c, x - r * .42 + dx, ey, x - r * .14 + dx, ey, '#2b2523', 2.2 * s);
+      line(c, x + r * .14 + dx, ey, x + r * .42 + dx, ey, '#2b2523', 2.2 * s);
+    } else {
+      ell(c, x - r * .3 + dx, ey, r * .1, o.wide ? r * .14 : r * .07, o.eyes || '#221c1a');
+      ell(c, x + r * .3 + dx, ey, r * .1, o.wide ? r * .14 : r * .07, o.eyes || '#221c1a');
+      line(c, x - r * .45 + dx, ey - r * .2, x - r * .15 + dx, ey - r * (o.sad ? .16 : .22), shade(o.hair || '#333', -.1), 2.5 * s);
+      line(c, x + r * .15 + dx, ey - r * (o.sad ? .16 : .22), x + r * .45 + dx, ey - r * .2, shade(o.hair || '#333', -.1), 2.5 * s);
+    }
+    // eye bags
+    c.globalAlpha = (1 - fade) * .35; ell(c, x - r * .3 + dx, ey + r * .14, r * .13, r * .05, '#6b4c45'); ell(c, x + r * .3 + dx, ey + r * .14, r * .13, r * .05, '#6b4c45');
+    c.globalAlpha = 1 - fade;
+    line(c, x + dx * .5, y + r * .05, x - r * .06 + dx * .5, y + r * .35, shade(skin, -.25), 2 * s);
+    c.beginPath();
+    if (o.smile) { c.arc(x + dx * .5, y + r * .45, r * .25, .15 * Math.PI, .85 * Math.PI); }
+    else { c.moveTo(x - r * .22 + dx * .5, y + r * .58); c.quadraticCurveTo(x + dx * .5, y + r * (o.sad ? .52 : .6), x + r * .22 + dx * .5, y + r * .58); }
+    c.strokeStyle = '#5b3a34'; c.lineWidth = 2.4 * s; c.stroke();
+    c.globalAlpha = 1;
+  }
+  if (o.glasses && fade < .9) {
+    c.globalAlpha = 1 - fade * .8; c.strokeStyle = '#1b1b1b'; c.lineWidth = 2.4 * s;
+    c.strokeRect(x - r * .5, y - r * .1, r * .38, r * .26); c.strokeRect(x + r * .12, y - r * .1, r * .38, r * .26);
+    line(c, x - r * .12, y, x + r * .12, y, '#1b1b1b', 2 * s); c.globalAlpha = 1;
+  }
+  // hair
+  const h = o.hair || '#3a312c';
+  if (o.style === 'long') {
+    c.beginPath(); c.moveTo(x - r * .9, y + r * .9);
+    c.bezierCurveTo(x - r * 1.15, y - r * .6, x - r * .5, y - r * 1.25, x, y - r * 1.12);
+    c.bezierCurveTo(x + r * .5, y - r * 1.25, x + r * 1.15, y - r * .6, x + r * .9, y + r * .9);
+    c.lineTo(x + r * .7, y + r * .9); c.bezierCurveTo(x + r * .8, y - r * .2, x + r * .4, y - r * .62, x - r * .1, y - r * .62);
+    c.bezierCurveTo(x - r * .6, y - r * .55, x - r * .75, y - r * .2, x - r * .7, y + r * .9); c.closePath(); c.fillStyle = h; c.fill();
+  } else if (o.style === 'bald') {
+    c.beginPath(); c.ellipse(x, y + r * .05, r * .86, r * .9, 0, Math.PI * .95, Math.PI * 1.25); c.lineWidth = r * .2; c.strokeStyle = h; c.stroke();
+    c.beginPath(); c.ellipse(x, y + r * .05, r * .86, r * .9, 0, Math.PI * 1.75, Math.PI * 2.05); c.stroke();
+  } else {
+    c.beginPath(); c.moveTo(x - r * .84, y + r * .05);
+    c.bezierCurveTo(x - r * .95, y - r * 1.05, x + r * .95, y - r * 1.15, x + r * .84, y + r * .05);
+    c.bezierCurveTo(x + r * .7, y - r * .45, x + r * .2, y - r * .55, x - r * .2, y - r * .5);
+    c.bezierCurveTo(x - r * .6, y - r * .45, x - r * .78, y - r * .3, x - r * .84, y + r * .05);
+    c.fillStyle = h; c.fill();
+  }
+  if (o.cap) {
+    c.beginPath(); c.ellipse(x, y - r * .55, r * .9, r * .45, 0, Math.PI, 0); c.fillStyle = o.cap; c.fill();
+    rect(c, x - r * .95, y - r * .58, r * 1.9, r * .16, shade(o.cap, -.2));
+    ell(c, x + r * .1, y - r * .45, r * 1.05, r * .1, shade(o.cap, -.3));
+  }
+  c.restore();
+}
+function person(c, x, feetY, s, o = {}) { // full standing figure, head center computed
+  const r = 38 * s, headY = feetY - r * 11.2;
+  const pants = o.pants || '#2d3036';
+  poly(c, [x - r * 1.9, headY + r * 4, x + r * 1.9, headY + r * 4, x + r * 1.5, feetY - r * .3, x + r * .15, feetY - r * .3, x, headY + r * 6.5, x - r * .15, feetY - r * .3, x - r * 1.5, feetY - r * .3], pants);
+  ell(c, x - r * .9, feetY - r * .15, r * .75, r * .28, '#151515'); ell(c, x + r * .9, feetY - r * .15, r * .75, r * .28, '#151515');
+  // arms
+  const sh = o.shirt || '#5d6670';
+  poly(c, [x - r * 2.3, headY + r * 2.2, x - r * 1.7, headY + r * 2.2, x - r * 1.6, headY + r * 6.6, x - r * 2.3, headY + r * 6.6], o.jacket || sh);
+  poly(c, [x + r * 2.3, headY + r * 2.2, x + r * 1.7, headY + r * 2.2, x + r * 1.6, headY + r * 6.6, x + r * 2.3, headY + r * 6.6], o.jacket || sh);
+  ell(c, x - r * 1.95, headY + r * 6.8, r * .32, r * .38, o.skin || '#c9a58c'); ell(c, x + r * 1.95, headY + r * 6.8, r * .32, r * .38, o.skin || '#c9a58c');
+  bust(c, x, headY, s, Object.assign({}, o, { torsoLong: true }));
+  // torso extension under bust
+  poly(c, [x - r * 2.5, headY + r * 4.1, x + r * 2.5, headY + r * 4.1, x + r * 2.0, headY + r * 6.4, x - r * 2.0, headY + r * 6.4], o.jacket || sh);
+  if (o.tie && !o.jacket) poly(c, [x - r * .2, headY + r * 3.9, x + r * .2, headY + r * 3.9, x, headY + r * 4.4], o.tie);
+  rect(c, x - r * 2.0, headY + r * 6.2, r * 4, r * .35, '#191919');
+  return headY;
+}
+function shade(hex, a) { // a<0 darker
+  let n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const f = v => clamp(Math.round(a < 0 ? v * (1 + a) : v + (255 - v) * a), 0, 255);
+  return '#' + ((1 << 24) + (f(r) << 16) + (f(g) << 8) + f(b)).toString(16).slice(1);
+}
+// The Process: tall faceless figure
+function processFigure(c, x, feetY, h, a = 1) {
+  c.save(); c.globalAlpha = a;
+  const w = h * .16;
+  c.fillStyle = lin(c, 0, feetY - h, 0, feetY, [[0, 'rgba(20,20,22,.95)'], [1, 'rgba(20,20,22,0)']]);
+  c.beginPath(); c.moveTo(x - w * .35, feetY - h * .86);
+  c.bezierCurveTo(x - w * 1.2, feetY - h * .8, x - w * .9, feetY - h * .2, x - w * .7, feetY);
+  c.lineTo(x + w * .7, feetY); c.bezierCurveTo(x + w * .9, feetY - h * .2, x + w * 1.2, feetY - h * .8, x + w * .35, feetY - h * .86);
+  c.closePath(); c.fill();
+  ell(c, x, feetY - h * .92, w * .32, w * .42, 'rgba(26,26,28,.97)');
+  c.restore();
+}
+
+// ---------------------------------------------------------------- MOOD / FILTER
+function grayLevel() { return clamp(S.gray / 100); }
+// dread: horror intensity — grows with gray AND with the days spent in the loop, pushed back by colours
+function DR() { return clamp(Math.max(S.gray, S.gray * .6 + (S.day - 1) * 9 - nColors() * 4), 0, 100); }
+function faceFade() { return clamp((DR() - 38) / 42); }
+function applyFilter() {
+  let g = clamp(.5 + S.gray / 200 - nColors() * .055, .08, 1);
+  if (scene && scene.forceGray !== undefined) g = scene.forceGray;
+  const con = 1 + S.gray / 400, br = 1 - S.gray / 650;
+  const v = `grayscale(${g.toFixed(3)}) contrast(${con.toFixed(3)}) brightness(${br.toFixed(3)})`;
+  if (applyFilter.last !== v) { document.documentElement.style.setProperty('--gf', v); applyFilter.last = v; }
+  $('grain').style.opacity = (.1 + S.gray / 600).toFixed(3);
+}
+function moodWord() {
+  const g = S.gray;
+  return T(g < 12 ? 'qualcosa si muove' : g < 30 ? 'stanco' : g < 50 ? 'spento' : g < 65 ? 'vuoto' : g < 80 ? 'assente' : g < 92 ? 'non ci sei quasi più' : 'grigio');
+}
+function addGray(v) {
+  if (v < 0) v *= .6;
+  S.gray = clamp(S.gray + v, 0, 100); applyFilter(); updateHUD(); A.mood();
+}
+
+// ---------------------------------------------------------------- AUDIO
+const A = {
+  ac: null, on: true, n: {},
+  init() {
+    if (this.ac) { this.ac.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const ac = this.ac = new AC();
+    const m = this.master = ac.createGain(); m.gain.value = this.on ? .9 : 0;
+    const comp = ac.createDynamicsCompressor(); m.connect(comp); comp.connect(ac.destination);
+    // noise buffer
+    const nb = this.noiseBuf = ac.createBuffer(1, ac.sampleRate * 3, ac.sampleRate);
+    const d = nb.getChannelData(0); let last = 0;
+    for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; d[i] = last * 3.5; }
+    const mk = (type, f, g, dest = m) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; const gg = ac.createGain(); gg.gain.value = g; o.connect(gg); gg.connect(dest); o.start(); return { o, g: gg }; };
+    const noise = (fq, q, g, type = 'lowpass') => { const s = ac.createBufferSource(); s.buffer = nb; s.loop = true; const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q; const gg = ac.createGain(); gg.gain.value = g; s.connect(f); f.connect(gg); gg.connect(m); s.start(); return { s, f, g: gg }; };
+    // office hum + fluorescent
+    this.n.hum = mk('sine', 50, 0); this.n.hum2 = mk('triangle', 100, 0);
+    this.n.buzz = mk('sawtooth', 120, 0);
+    { const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 8; this.n.buzz.g.disconnect(); this.n.buzz.g.connect(f); f.connect(m); }
+    this.n.room = noise(380, .7, 0);
+    this.n.tram = noise(140, 1.2, 0);
+    this.n.wave = noise(900, .5, 0);
+    this.n.rain = noise(5200, .4, 0, 'highpass');
+    // drone (horror) — detuned low saws through lowpass
+    const df = ac.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = 260; df.Q.value = 6; const dg = ac.createGain(); dg.gain.value = 0; df.connect(dg); dg.connect(m);
+    [55, 55.7, 82.4, 58.3].forEach(f => { const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const g = ac.createGain(); g.gain.value = .25; o.connect(g); g.connect(df); o.start(); });
+    this.n.drone = { g: dg, f: df };
+    // hope pad — one note per color fragment
+    const pf = ac.createBiquadFilter(); pf.type = 'lowpass'; pf.frequency.value = 1400; pf.connect(m);
+    this.pad = [130.81, 196, 261.63, 329.63, 392, 493.88, 587.33].map((f, i) => {
+      const o = ac.createOscillator(); o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = rnd(-6, 6);
+      const g = ac.createGain(); g.gain.value = 0; const l = ac.createOscillator(); l.frequency.value = .08 + i * .03; const lg = ac.createGain(); lg.gain.value = .006;
+      l.connect(lg); lg.connect(g.gain); o.connect(g); g.connect(pf); o.start(); l.start(); return g;
+    });
+    this.mood(); this.amb(this._amb || 'none');
+    setInterval(() => this.tick(), 1000);
+  },
+  set(node, v, t = 1.5) { if (!this.ac || !node) return; const p = node.g.gain; p.cancelScheduledValues(this.ac.currentTime); p.setTargetAtTime(v, this.ac.currentTime, t / 3); },
+  amb(kind) {
+    this._amb = kind; if (!this.ac) return;
+    const off = { hum: 0, hum2: 0, buzz: 0, room: 0, tram: 0, wave: 0 };
+    const M = {
+      office: { hum: .05, hum2: .02, buzz: .004, room: .05 },
+      home: { hum: .02, room: .03 },
+      tram: { tram: .32, room: .05, hum: .03 },
+      lake: { wave: .12 },
+      stairs: { room: .06, hum: .03 },
+      outside: { wave: .03, room: .02 },
+      none: {}
+    }[kind] || {};
+    for (const k in off) this.set(this.n[k], M[k] || 0, 2);
+    if (kind === 'lake') this.birds();
+    this.rain(CFG.event === 'pioggia' && (kind === 'tram' || kind === 'office'));
+  },
+  rain(on) { this.set(this.n.rain, on ? .05 : 0, 2); },
+  mood() {
+    if (!this.ac) return;
+    const g = grayLevel();
+    const nc = nColors();
+    this.set(this.n.drone, scene && scene.calm ? 0 : clamp((g - .3) * .22, 0, .14), 3);
+    if (this.n.drone) this.n.drone.f.frequency.setTargetAtTime(160 + g * 260, this.ac.currentTime, 1);
+    this.pad.forEach((p, i) => { const on = !!S.colors[COLORS[i].k]; p.gain.setTargetAtTime(on ? (scene && scene.calm ? .05 : .022) : 0, this.ac.currentTime, 1.5); });
+  },
+  tick() {
+    if (!this.ac || !scene) return;
+    if (scene.clock) this.click(1400, .012, .02);
+    if (DR() > 78 && !scene.calm) { this.heart(); }
+    if (DR() > 62 && !scene.calm && Math.random() < .06) this.whisper();
+  },
+  env(o, g, a, d, peak, t0) { const t = t0 || this.ac.currentTime; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); o.stop(t + a + d + .05); },
+  tone(f, type = 'sine', dur = .2, vol = .1, delay = 0, slide) {
+    if (!this.ac) return; const t = this.ac.currentTime + delay; const o = this.ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    const g = this.ac.createGain(); o.connect(g); g.connect(this.master); o.start(t); this.env(o, g, .005, dur, vol, t);
+  },
+  click(f = 1200, v = .02, d = .015) { this.tone(f, 'square', d, v); },
+  blip() { if (Math.random() < .5) this.tone(rnd(520, 640) * (S.gray > 70 ? .7 : 1), 'triangle', .035, .018); },
+  ui() { this.tone(880, 'sine', .06, .04); },
+  stamp(ok) { this.noiseHit(160, .25, .3); this.tone(ok ? 90 : 70, 'sine', .18, .25); },
+  noiseHit(fq = 800, dur = .1, vol = .2, type = 'lowpass') {
+    if (!this.ac) return; const s = this.ac.createBufferSource(); s.buffer = this.noiseBuf; const f = this.ac.createBiquadFilter(); f.type = type; f.frequency.value = fq;
+    const g = this.ac.createGain(); s.connect(f); f.connect(g); g.connect(this.master); s.start(); this.env(s, g, .004, dur, vol);
+  },
+  heart() { this.tone(52, 'sine', .16, .22); this.tone(48, 'sine', .14, .16, .22); },
+  whisper() { if (!this.ac) return; for (let i = 0; i < 3; i++) setTimeout(() => this.noiseHit(rnd(1800, 3600), rnd(.12, .3), .035, 'bandpass'), i * rnd(90, 200)); },
+  chime(i = 0) { const base = [523.25, 587.33, 659.25, 783.99, 880, 987.77, 1046.5]; [0, 2, 4].forEach((k, j) => this.tone(base[(i + k) % 7] * (j ? 1 : .5), 'sine', 2.2, .09, j * .12)); },
+  alarmOn() { if (!this.ac) return; this.alarmOff(); this._al = setInterval(() => { [0, .14, .28].forEach(d => this.tone(1950, 'square', .07, .05, d)); }, 900); },
+  alarmOff() { clearInterval(this._al); },
+  ringOn() { if (!this.ac) return; this.ringOff(); const r = () => { for (let i = 0; i < 12; i++) this.tone(i % 2 ? 640 : 800, 'sine', .05, .06, i * .06); }; r(); this._rg = setInterval(r, 2600); },
+  ringOff() { clearInterval(this._rg); },
+  pluck(f, vol = .25) { // Karplus–Strong
+    if (!this.ac) return; const sr = this.ac.sampleRate, N = Math.round(sr / f), len = sr * 2.4;
+    const b = this.ac.createBuffer(1, len, sr), d = b.getChannelData(0); const buf = new Float32Array(N).map(() => Math.random() * 2 - 1);
+    for (let i = 0; i < len; i++) { const j = i % N; const v = buf[j]; d[i] = v; buf[j] = (v + buf[(j + 1) % N]) * .4985; }
+    const s = this.ac.createBufferSource(); s.buffer = b; const g = this.ac.createGain(); g.gain.value = vol; s.connect(g); g.connect(this.master); s.start();
+  },
+  birds() { if (!this.ac) return; clearTimeout(this._bt); const go = () => { if (this._amb !== 'lake' && this._amb !== 'outside') return; const f = rnd(2200, 3400); for (let i = 0; i < rnd(2, 5); i++) this.tone(f + rnd(-200, 300), 'sine', .07, .03, i * .1, f * 1.3); this._bt = setTimeout(go, rnd(1500, 4500)); }; go(); },
+  step() { this.noiseHit(300, .08, .12); },
+  door() { this.noiseHit(120, .6, .35); this.tone(60, 'sine', .5, .2); },
+  sting() { this.noiseHit(3000, .5, .12, 'highpass'); this.tone(110, 'sawtooth', 1.2, .08, 0, 55); },
+  toggle() { this.on = !this.on; if (this.master) this.master.gain.setTargetAtTime(this.on ? .9 : 0, this.ac.currentTime, .1); return this.on; }
+};
+
+// ---------------------------------------------------------------- SCENES (art)
+const bgCache = new Map();
+let scene = null, T0 = performance.now(), tNow = 0;
+const NET = { online: 1, postits: [], badges: [], stats: {} };
+
+const LOOK = { // character looks
+  me: { skin: '#c8a48b', hair: '#2f2925', shirt: '#cfd2d4', tie: '#3d4452' },
+  gianni: { skin: '#d0a080', hair: '#5a4a3e', style: 'bald', shirt: '#9db4cc', tie: '#7a3b35' },
+  marta: { skin: '#e0bca4', hair: '#4a2f24', style: 'long', shirt: '#7d6f8a', glasses: true },
+  valenti: { skin: '#c79c86', hair: '#8b8b8b', style: 'bald', shirt: '#e6e6e2', jacket: '#2a2d33', tie: '#7a1f1f', glasses: true },
+  osvaldo: { skin: '#c69378', hair: '#cfcfcf', shirt: '#2d3a52', jacket: '#26314a', cap: '#26314a', tie: '#111' },
+};
+const CUB = ['#6f7a86', '#7a7268', '#59636e', '#86807a', '#6a5e70'];
+
+function flick(t, k = 0) {
+  if (CFG.event === 'blackout') return .35 + .15 * Math.sin(t * 50 + k);
+  const p = Math.sin(t * 37 + k) * Math.sin(t * 13.7 + k * 3) * Math.sin(t * 3.1 + k);
+  return p > .93 - DR() / 700 ? .45 : 1;
+}
+function stareFlash(t) { return DR() > 60 && !scene.calm && (Math.floor(t * 10) % 140 === 0); }
+
+const SCENES = {
+  // ============================================================ BEDROOM
+  bedroom: {
+    amb: 'home',
+    key: () => `${scene.eve ? 'e' : 'm'}${F('tapOpen') ? 1 : 0}${has('arancio') ? 1 : 0}${has('viola') ? 1 : 0}`,
+    bg(c) {
+      const eve = scene.eve;
+      const R = room({ x0: 470, y0: 170, x1: 1130, y1: 600 });
+      drawRoom(c, R, { ceil: '#2d3036', floor: '#3a302a', wall: '#3e444d', back: '#454b54', lwall: '#383d45', rwall: '#353a42', floorLines: 'rgba(0,0,0,.18)' });
+      // window
+      const open = F('tapOpen');
+      rect(c, 640, 220, 320, 260, '#1d2126');
+      if (!open) {
+        for (let y = 228; y < 472; y += 13) { rect(c, 648, y, 304, 11, '#5b626c'); rect(c, 648, y + 10, 304, 2, '#353a40'); }
+      } else {
+        rect(c, 648, 228, 304, 244, eve ? '#121722' : '#37414d');
+        c.fillStyle = '#1b1f26'; for (let i = 0; i < 7; i++) c.fillRect(648 + i * 46, 380 - (i * 37 % 60), 38, 100);
+        rect(c, 648, 228, 304, 18, '#5b626c');
+      }
+      rect(c, 790, 220, 10, 260, '#2a2e33'); rrect(c, 632, 212, 336, 276, 4, null, '#24282d', 10);
+      // closet on left wall
+      const a = R.P(0, .12, .18), b = R.P(0, .12, .7), d = R.P(0, 1, .7), e = R.P(0, 1, .18);
+      poly(c, [a[0] + 14, a[1] + 20, b[0], b[1] + 6, d[0], d[1] - 2, e[0] + 14, e[1] - 30], '#4a3c33');
+      const m1 = R.P(0, .5, .44); line(c, m1[0], R.P(0, .14, .44)[1] + 10, m1[0], R.P(0, 1, .44)[1] - 16, '#2b221d', 3);
+      ell(c, m1[0] - 12, m1[1], 4, 9, '#9c8b6a'); ell(c, m1[0] + 10, m1[1], 4, 9, '#9c8b6a');
+      // TV on dresser (right back)
+      poly(c, [1010, 470, 1128, 470, 1128, 600, 1010, 600], '#3a2f28');
+      rect(c, 1018, 380, 104, 74, '#0d0f11'); rect(c, 1062, 454, 14, 16, '#111');
+      // bed
+      poly(c, [150, 900, 280, 560, 760, 560, 930, 900], '#4f5866');
+      poly(c, [280, 560, 760, 560, 770, 600, 270, 610], '#59616e');
+      rect(c, 300, 470, 450, 100, '#3a3129'); // headboard
+      rrect(c, 320, 540, 190, 55, 22, '#a7aaa8'); rrect(c, 530, 540, 190, 55, 22, '#a2a5a3');
+      poly(c, [180, 900, 300, 640, 790, 640, 905, 900], '#5d6878');
+      for (let i = 0; i < 6; i++) line(c, 260 + i * 120, 900, 360 + i * 80, 650, 'rgba(0,0,0,.15)', 3);
+      // nightstand
+      poly(c, [1000, 640, 1250, 640, 1270, 820, 990, 820], '#3f342b'); rect(c, 990, 620, 280, 22, '#4b3f35');
+      line(c, 1000, 730, 1265, 730, '#2a221c', 3); ell(c, 1130, 690, 10, 5, '#8f7d5a');
+      // alarm clock body
+      rrect(c, 1030, 568, 140, 56, 8, '#1a1a1c');
+      if (eve) { // lamp
+        poly(c, [1190, 500, 1250, 500, 1270, 560, 1170, 560], '#cbbf9e'); rect(c, 1214, 560, 10, 60, '#555');
+        c.fillStyle = rad(c, 1220, 540, 10, 500, [[0, 'rgba(255,215,150,.35)'], [1, 'rgba(255,215,150,0)']]); c.fillRect(0, 0, VW, VH);
+      }
+      if (has('viola')) { // guitar leaning
+        c.save(); c.translate(80, 760); c.rotate(-.18); ell(c, 0, 0, 70, 90, '#7a2a24'); ell(c, 0, -110, 50, 60, '#7a2a24'); ell(c, 0, -20, 22, 22, '#1b0f0c'); rect(c, -9, -380, 18, 260, '#3a2618'); c.restore();
+      }
+      c.fillStyle = eve ? 'rgba(10,10,30,.25)' : 'rgba(20,30,50,.3)'; c.fillRect(0, 0, VW, VH);
+    },
+    draw(c, k, t) {
+      if (F('tapOpen')) {
+        if (has('arancio') && !scene.eve) {
+          k.fillStyle = lin(k, 0, 228, 0, 472, [[0, '#ff9a4a'], [.55, '#ffcf8a'], [1, '#f3e3bd']]); k.fillRect(648, 246, 304, 226);
+          ell(k, 830, 440, 46, 46, '#fff2c8');
+          k.fillStyle = '#4a3328'; for (let i = 0; i < 7; i++) k.fillRect(648 + i * 46, 400 - (i * 37 % 60), 38, 72);
+          k.fillStyle = rad(k, 800, 360, 50, 700, [[0, 'rgba(255,170,90,.22)'], [1, 'rgba(255,170,90,0)']]); k.fillRect(0, 0, VW, VH);
+        }
+      }
+      // digits
+      if (!scene.eve) {
+        const blink = Math.floor(t * 2) % 2 || !scene.alarm;
+        text(k, DR() > 85 && Math.random() < .2 ? '66:66' : '06:47', 1100, 597, '600 38px "IBM Plex Mono",monospace', blink ? '#ff3b2f' : 'rgba(255,59,47,.25)');
+        k.fillStyle = rad(k, 1100, 597, 5, 140, [[0, 'rgba(255,40,30,.18)'], [1, 'rgba(255,40,30,0)']]); k.fillRect(950, 450, 300, 300);
+      } else {
+        text(k, '21:13', 1100, 597, '600 38px "IBM Plex Mono",monospace', 'rgba(255,59,47,.5)');
+        // tv glow
+        const tv = .5 + .5 * Math.sin(t * 9) * Math.sin(t * 2.3);
+        c.fillStyle = `rgba(170,190,210,${.35 + tv * .25})`; c.fillRect(1018, 380, 104, 74);
+        c.fillStyle = rad(c, 1070, 420, 10, 420, [[0, `rgba(160,190,220,${.12 + tv * .08})`], [1, 'rgba(0,0,0,0)']]); c.fillRect(600, 100, 1000, 800);
+        if (scene.ring) {
+          const sh = Math.sin(t * 60) * 3;
+          rrect(k, 1080 + sh, 606, 60, 18, 4, '#0d0d0f');
+          k.fillStyle = 'rgba(120,200,255,.9)'; k.fillRect(1084 + sh, 609, 52, 12);
+          text(k, 'CHIARA', 1110 + sh, 580, '600 16px "IBM Plex Mono",monospace', '#bfe6ff');
+          k.fillStyle = rad(k, 1110, 615, 4, 120, [[0, 'rgba(120,200,255,.35)'], [1, 'rgba(120,200,255,0)']]); k.fillRect(980, 500, 260, 240);
+        }
+      }
+    }
+  },
+  // ============================================================ BATHROOM
+  bathroom: {
+    amb: 'home',
+    key: () => 'b' + Math.round(DR() / 10),
+    bg(c) {
+      const R = room({ x0: 430, y0: 150, x1: 1170, y1: 640 });
+      drawRoom(c, R, { ceil: '#8c9496', floor: '#5f6567', wall: '#9aa5a8', back: '#a8b2b4', floorLines: 'rgba(0,0,0,.15)' });
+      c.strokeStyle = 'rgba(60,70,72,.35)'; c.lineWidth = 1.5;
+      for (let x = 430; x <= 1170; x += 46) line(c, x, 150, x, 640, 'rgba(60,70,72,.3)', 1.5);
+      for (let y = 150; y <= 640; y += 46) line(c, 430, y, 1170, y, 'rgba(60,70,72,.3)', 1.5);
+      // grime
+      for (let i = 0; i < 40 + DR(); i++) { c.fillStyle = `rgba(40,45,40,${rnd(.03, .09)})`; c.fillRect(rnd(430, 1170), rnd(400, 640), rnd(10, 60), rnd(4, 30)); }
+      rrect(c, 540, 185, 520, 400, 10, '#3a3f42');
+      rect(c, 700, 150, 200, 20, '#ddd');
+      // sink
+      ell(c, 800, 760, 330, 90, '#d9dcda'); ell(c, 800, 745, 260, 58, '#9fa6a6'); ell(c, 800, 752, 40, 12, '#3f4446');
+      rect(c, 790, 640, 20, 70, '#9ea4a6'); rrect(c, 760, 630, 80, 22, 6, '#b8bfc1');
+      poly(c, [470, 820, 1130, 820, 1100, 900, 500, 900], '#c7cbc9');
+      // toothbrush cup
+      rrect(c, 1020, 650, 50, 70, 6, '#7c8d91'); line(c, 1035, 650, 1030, 590, '#d5d5d5', 6);
+    },
+    draw(c, k, t) {
+      // mirror surface
+      c.save(); c.beginPath(); c.rect(556, 200, 488, 370); c.clip();
+      c.fillStyle = lin(c, 0, 200, 0, 570, [[0, '#7f8b90'], [1, '#b3bec1']]); c.fillRect(556, 200, 488, 370);
+      // reflection back wall tiles
+      for (let x = 556; x < 1044; x += 40) line(c, x, 200, x, 570, 'rgba(60,70,72,.2)', 1);
+      const prog = F('mir') || 0, lag = scene.lag ? Math.sin(t * 2) > .7 : false;
+      let fade = faceFade(); if (DR() > 75 && !has('indaco')) fade = 1; if (has('indaco')) fade = Math.min(fade, .1);
+      const blink = (Math.floor(t * .5) % 6 === 0 && (t % 2) < .15);
+      const o = Object.assign({}, LOOK.me, { shirt: '#cfd0cb', tie: null, fade, sad: !has('indaco'), smile: scene.smile, look: (blink && !lag) ? 'down' : null });
+      const bob = Math.sin(t * 1.3) * 3;
+      bust(c, 800 + (scene.lagX || 0), 360 + bob, 2.3, o);
+      c.fillStyle = lin(c, 556, 200, 1044, 570, [[0, 'rgba(255,255,255,.18)'], [.4, 'rgba(255,255,255,0)'], [.6, 'rgba(255,255,255,.06)'], [1, 'rgba(255,255,255,0)']]); c.fillRect(556, 200, 488, 370);
+      c.restore();
+      // bulb glow
+      const f = flick(t, 2);
+      c.fillStyle = rad(c, 800, 160, 10, 600, [[0, `rgba(255,250,235,${.3 * f})`], [1, 'rgba(0,0,0,0)']]); c.fillRect(0, 0, VW, VH);
+      if (f < 1) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, 0, VW, VH); }
+    }
+  },
+  // ============================================================ TRAM
+  tram: {
+    amb: 'tram',
+    key: () => 't' + Math.round(DR() / 10) + (DR() > 80 ? 'me' : ''),
+    bg(c) {
+      rect(c, 0, 0, VW, 130, '#6f7477'); for (let x = 80; x < VW; x += 300) rect(c, x, 40, 180, 26, '#d7ddd8');
+      rect(c, 0, 130, VW, 520, '#7e8a8a');
+      rect(c, 0, 470, VW, 120, '#5c6668');
+      for (const x of [110, 590, 1070]) { rrect(c, x, 150, 420, 270, 18, '#30373b'); }
+      // seats & passengers
+      const me = DR() > 80;
+      const P = [[260, '#6b5a4c', '#5e6d7a'], [480, '#3a312c', '#8d6f5a'], [800, '#252525', '#6b6f5a'], [1040, '#7a6a5a', '#4f5f74'], [1300, '#4a3a30', '#7a5050']];
+      scene.heads = [];
+      P.forEach(([x, hair, shirt], i) => {
+        const o = me ? Object.assign({}, LOOK.me, { look: 'down', fade: Math.min(.6, faceFade()) }) : { hair, shirt, look: 'down', style: i === 1 ? 'long' : i === 3 ? 'bald' : '', skin: ['#c8a48b', '#e0bca4', '#a8785e', '#d0a080', '#c79c86'][i], fade: faceFade() };
+        bust(c, x, 482, 1.2, o); scene.heads.push([x, 482, 1.2]);
+      });
+      rrect(c, 0, 560, VW, 70, 10, '#3e4d5c'); rect(c, 0, 620, VW, 30, '#2b3540');
+      rect(c, 0, 650, VW, 250, '#353637'); for (let x = 0; x < VW; x += 26) line(c, x, 650, x - 60, 900, 'rgba(0,0,0,.15)', 2);
+      rect(c, 0, 840, VW, 10, '#a89a3a');
+      // poles
+      for (const x of [560, 1180]) { rect(c, x - 9, 0, 18, 900, '#b9bcbc'); rect(c, x - 9, 0, 5, 900, '#e5e7e6'); }
+      rect(c, 0, 118, VW, 10, '#aeb2b2');
+    },
+    draw(c, k, t) {
+      const lakeView = scene.lakeView, sp = scene.stopped ? 0 : 220;
+      for (const x of [110, 590, 1070]) {
+        c.save(); c.beginPath(); c.rect(x + 12, 162, 396, 246); c.clip();
+        if (lakeView) {
+          k.save(); k.beginPath(); k.rect(x + 12, 162, 396, 246); k.clip();
+          k.fillStyle = lin(k, 0, 177, 0, 423, [[0, '#9cc4dd'], [.5, '#e6eef0'], [.52, '#6aa0c4'], [1, '#2f6c98']]); k.fillRect(x, 170, 420, 260);
+          for (let i = 0; i < 12; i++) { k.fillStyle = 'rgba(255,255,255,.35)'; k.fillRect(x + ((i * 61 + t * 15) % 420), 320 + i * 8, 40, 2); }
+          k.restore();
+        } else {
+          c.fillStyle = lin(c, 0, 177, 0, 423, [[0, '#8e979c'], [1, '#c3c7c6']]); c.fillRect(x, 170, 420, 260);
+          for (let i = 0; i < 9; i++) {
+            const bx = ((i * 210 - t * sp) % 1900 + 1900) % 1900 - 200; const bh = 120 + (i * 53) % 110;
+            rect(c, bx, 423 - bh, 150, bh, i % 2 ? '#5e6468' : '#6e7478');
+            for (let wy = 423 - bh + 14; wy < 410; wy += 24) for (let wx = bx + 14; wx < bx + 140; wx += 30) rect(c, wx, wy, 14, 12, (wx + wy + i) % 7 === 0 ? '#c9c19a' : '#4a4f53');
+          }
+          for (let i = 0; i < 4; i++) { const px = ((i * 500 - t * sp * 2.6) % 2000 + 2000) % 2000 - 100; rect(c, px, 180, 14, 260, '#3a3f42'); }
+        }
+        if (CFG.event === 'pioggia') { c.strokeStyle = 'rgba(220,230,235,.35)'; for (let i = 0; i < 30; i++) { const rx = x + ((i * 37 + t * 40) % 420), ry = 177 + ((i * 91 + t * 300) % 260); line(c, rx, ry, rx - 6, ry + 18, 'rgba(220,230,235,.35)', 1); } }
+        c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(x, 170, 420, 260);
+        c.restore();
+      }
+      // straps
+      for (let i = 0; i < 9; i++) {
+        const x = 90 + i * 180, sw = Math.sin(t * 1.6 + i) * (scene.stopped ? 2 : 10);
+        line(c, x, 128, x + sw, 210, '#2b2b2b', 4); c.beginPath(); c.ellipse(x + sw, 226, 16, 18, 0, 0, 7); c.strokeStyle = '#d9d9d2'; c.lineWidth = 5; c.stroke();
+      }
+      // phone glows
+      if (scene.heads) scene.heads.forEach(([x, y], i) => { k.fillStyle = `rgba(150,200,255,${.12 + .05 * Math.sin(t * 3 + i)})`; k.beginPath(); k.ellipse(x, y + 70, 40, 26, 0, 0, 7); k.fill(); });
+      if (stareFlash(t) && scene.heads) scene.heads.forEach(([x, y]) => { ell(c, x - 11, y, 4, 4, '#fff'); ell(c, x + 11, y, 4, 4, '#fff'); });
+      const shake = scene.stopped ? 0 : Math.sin(t * 23) * 1.2;
+      stage.style.transform = `translateY(${shake * stageRect.h / VH}px)`;
+    },
+    leave() { stage.style.transform = ''; }
+  },
+  // ============================================================ LOBBY
+  lobby: {
+    amb: 'office',
+    key: () => 'l' + Math.round(DR() / 10) + NET.badges.length,
+    bg(c) {
+      const R = room({ x0: 420, y0: 170, x1: 1180, y1: 560 });
+      drawRoom(c, R, { ceil: '#4a4744', floor: '#8b8984', wall: '#5e5852', back: '#6a635b' });
+      for (let i = 0; i < 10; i++) { const t = 1 - Math.pow(1 - i / 10, 2); const a = R.P(0, 1, t), b = R.P(1, 1, t); line(c, a[0], a[1], b[0], b[1], 'rgba(255,255,255,.08)', 2); }
+      c.fillStyle = lin(c, 0, 560, 0, 900, [[0, 'rgba(255,255,255,.12)'], [1, 'rgba(255,255,255,0)']]); poly(c, [700, 560, 900, 560, 1000, 900, 600, 900], c.fillStyle);
+      // wood panels
+      for (let x = 420; x < 1180; x += 38) line(c, x, 170, x, 560, 'rgba(0,0,0,.18)', 2);
+      text(c, 'P E R P E T U A', 800, 222, '600 46px "IBM Plex Mono",monospace', '#c8c1b3');
+      text(c, 'ASSICURIAMO IL VOSTRO DOMANI. UGUALE A OGGI.', 800, 262, '400 15px "IBM Plex Mono",monospace', '#a39b8d');
+      // entrance glass doors
+      rect(c, 700, 300, 200, 260, '#1e2224'); rect(c, 708, 308, 88, 252, '#9aa2a4'); rect(c, 804, 308, 88, 252, '#9aa2a4');
+      c.fillStyle = 'rgba(255,255,255,.15)'; poly(c, [708, 308, 740, 308, 708, 380], c.fillStyle);
+      // elevator
+      rect(c, 990, 320, 150, 240, '#3b3d3e'); rect(c, 998, 330, 66, 230, '#9ea2a3'); rect(c, 1066, 330, 66, 230, '#959a9b');
+      rect(c, 1040, 296, 50, 20, '#111');
+      // board of badges
+      rect(c, 450, 320, 210, 160, '#6b5236'); rect(c, 458, 328, 194, 144, '#a08058');
+      text(c, 'DIPENDENTI DEL MESE', 555, 344, '600 11px "IBM Plex Mono",monospace', '#2a1e12');
+      const nb = Math.min(12, NET.badges.length || 3);
+      for (let i = 0; i < nb; i++) { const bx = 468 + (i % 6) * 31, by = 360 + Math.floor(i / 6) * 50; rect(c, bx, by, 25, 38, '#d6d4cf'); rect(c, bx + 6, by + 6, 13, 16, '#8c8c8c'); }
+      // turnstiles
+      for (const x of [640, 800, 960]) { rect(c, x - 22, 560, 44, 150, '#7a7d80'); rect(c, x - 26, 556, 52, 14, '#b3b6b8'); ell(c, x, 590, 10, 6, x === 800 ? '#3c3' : '#c33'); line(c, x + 22, 620, x + 110, 640, '#c2c4c5', 8); }
+      // desk
+      poly(c, [80, 640, 600, 640, 640, 880, 40, 880], '#4f3a2a'); rect(c, 60, 610, 560, 34, '#6b513b');
+      line(c, 60, 700, 630, 700, 'rgba(0,0,0,.25)', 3);
+      rrect(c, 420, 560, 120, 54, 4, '#151617'); rect(c, 428, 566, 104, 40, '#6f8a83');
+    },
+    draw(c, k, t) {
+      const ff = faceFade();
+      if (!scene.noOsv) {
+        bust(c, 290, 420, 1.55, Object.assign({}, LOOK.osvaldo, { fade: ff * .7, smile: scene.osvSmile, dir: .6 }));
+        poly(c, [80, 640, 600, 640, 640, 880, 40, 880], '#4f3a2a'); rect(c, 60, 610, 560, 34, '#6b513b'); line(c, 60, 700, 630, 700, 'rgba(0,0,0,.25)', 3);
+        rrect(c, 420, 560, 120, 54, 4, '#151617'); c.fillStyle = `rgba(111,138,131,${.7 + .3 * Math.sin(t * 2)})`; c.fillRect(428, 566, 104, 40);
+      }
+      if (DR() > 70 && Math.sin(t * .7) > .6) processFigure(c, 1100, 560, 330, .8);
+      const f = flick(t, 5); if (f < 1) { c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(0, 0, VW, VH); }
+      text(c, '4', 1065, 306, '600 14px "IBM Plex Mono",monospace', '#e33');
+    }
+  },
+  // ============================================================ OFFICE
+  office: {
+    amb: 'office', clock: true,
+    key: () => 'o' + Math.round(DR() / 8) + Math.min(9, NET.online) + (CFG.event === 'blackout' ? 'b' : ''),
+    bg(c) {
+      const R = room({ x0: 560, y0: 215, x1: 1040, y1: 470 });
+      drawRoom(c, R, { ceil: '#9d9f9a', floor: '#4d545b', wall: '#b4b5ad', back: '#aaaca5', lwall: '#a9aaa2', rwall: '#a3a49d', floorLines: 'rgba(0,0,0,.07)' });
+      for (let i = 0; i < 6; i++) { const t = .06 + i * .16; ceilLight(c, R, .18, .36, t, t + .07); ceilLight(c, R, .64, .82, t, t + .07); }
+      // windows
+      rect(c, 585, 250, 330, 130, '#5a5f60');
+      c.fillStyle = lin(c, 0, 256, 0, 374, [[0, '#8f979c'], [1, '#c4c8c8']]); c.fillRect(591, 256, 318, 118);
+      for (let i = 0; i < 8; i++) rect(c, 595 + i * 40, 374 - (40 + (i * 29) % 50), 32, 40 + (i * 29) % 50, '#7b8285');
+      for (let x = 591; x < 909; x += 53) rect(c, x, 256, 4, 118, '#5a5f60');
+      if (CFG.event === 'pioggia') for (let i = 0; i < 60; i++) { const x = rnd(591, 909), y = rnd(256, 374); line(c, x, y, x - 2, y + 9, 'rgba(230,235,240,.4)', 1); }
+      // corridor
+      rect(c, 935, 290, 85, 180, '#59595a'); poly(c, [935, 470, 1020, 470, 1000, 455, 952, 455], '#3a3d41');
+      rect(c, 958, 338, 40, 117, '#7b2c25'); ell(c, 990, 400, 3, 3, '#ccc');
+      rect(c, 958, 316, 40, 16, '#1d3a22');
+      // cubicles
+      scene.heads = [];
+      const online = Math.min(9, Math.max(0, NET.online - 1));
+      const ts = [.16, .36, .54, .7, .82];
+      let seat = 0;
+      for (let side = 0; side < 2; side++) {
+        [...ts].reverse().forEach((t, ri) => { const i = ts.length - 1 - ri;
+          const u0 = side ? .56 : .04, u1 = side ? .96 : .44;
+          const a = R.P(u0, 1, t), b = R.P(u1, 1, t), sc = R.sc(t);
+          const h = 165 * sc;
+          // heads behind partition
+          const occupied = (i + side) % 2 === 0 || seat < online; seat++;
+          if (occupied) {
+            const hx = lerp(a[0], b[0], .3 + ((i * 7 + side * 3) % 5) * .1), hy = a[1] - h - 20 * sc;
+            const other = seat <= online;
+            bust(c, hx, hy, sc * 1.15, { hair: ['#3a312c', '#6b5a4c', '#222', '#8b7b6b'][i % 4], shirt: other ? '#8a8a8a' : ['#5d6670', '#7a6b5d', '#6a7a6a'][i % 3], fade: other ? 1 : faceFade(), skin: other ? '#a9a9a9' : undefined, look: 'down', style: i % 3 === 1 ? 'long' : '' });
+            scene.heads.push([hx, hy, sc * 1.15]);
+          }
+          rect(c, a[0], a[1] - h, b[0] - a[0], h, CUB[(i + side) % CUB.length]);
+          rect(c, a[0], a[1] - h, b[0] - a[0], 6 * sc, '#c8c9c4');
+          for (let k = 1; k < 4; k++) line(c, lerp(a[0], b[0], k / 4), a[1] - h, lerp(a[0], b[0], k / 4), a[1], 'rgba(0,0,0,.15)', 2 * sc);
+        });
+      }
+      // clock (left wall)
+      ell(c, 250, 250, 38, 50, '#e8e8e2'); c.beginPath(); c.ellipse(250, 250, 38, 50, 0, 0, 7); c.strokeStyle = '#333'; c.lineWidth = 5; c.stroke();
+      // Marta partition
+      poly(c, [1130, 540, 1600, 520, 1600, 900, 1130, 900], '#646d75'); rect(c, 1130, 528, 470, 14, '#c8c9c4');
+      // own desk
+      poly(c, [0, 690, 1110, 690, 1170, 900, 0, 900], '#8c8376'); rect(c, 0, 690, 1110, 8, '#a39a8c');
+      c.fillStyle = lin(c, 0, 690, 0, 900, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.3)']]); poly(c, [0, 690, 1110, 690, 1170, 900, 0, 900], c.fillStyle);
+      c.save(); c.translate(-300, 0);
+      // monitor
+      rect(c, 540, 640, 60, 60, '#202224'); poly(c, [470, 690, 670, 690, 650, 705, 490, 705], '#1a1b1c');
+      rrect(c, 340, 380, 460, 280, 10, '#1d1e20');
+      // keyboard
+      poly(c, [380, 735, 760, 735, 790, 800, 350, 800], '#2a2c2f');
+      for (let r = 0; r < 4; r++) for (let q = 0; q < 16; q++) rect(c, 362 + r * 7 + q * 26, 742 + r * 14, 20, 10, '#3d4044');
+      c.restore();
+      // folders
+      for (let i = 0; i < 9; i++) { rect(c, 880 + (i % 2) * 6, 690 - i * 15, 200, 14, ['#c9b88f', '#b5a47c', '#d2c49c'][i % 3]); }
+      text(c, 'PRATICHE', 980, 626, '600 13px "IBM Plex Mono",monospace', '#4a3f2a');
+      c.save(); c.translate(420, 0);
+      // mug
+      rrect(c, 140, 610, 70, 84, 8, '#d2d2cc'); c.beginPath(); c.arc(212, 650, 20, -1.2, 1.2); c.strokeStyle = '#d2d2cc'; c.lineWidth = 10; c.stroke();
+      text(c, 'N°1', 175, 650, '600 15px "IBM Plex Mono",monospace', '#777'); c.restore(); c.save(); c.translate(-300, 0);
+      // post-it on monitor
+      rect(c, 760, 400, 60, 56, '#d8c86a'); text(c, 'NON', 790, 420, '600 11px monospace', '#3a3418'); text(c, 'PENSARE', 790, 438, '600 9px monospace', '#3a3418'); c.restore();
+    },
+    draw(c, k, t) {
+      // monitor content
+      const f = flick(t);
+      c.save(); c.translate(-300, 0);
+      c.fillStyle = '#a9bcbf'; c.fillRect(356, 396, 428, 248);
+      c.fillStyle = '#6f8487'; c.fillRect(356, 396, 428, 20);
+      for (let r = 0; r < 11; r++) for (let q = 0; q < 6; q++) { c.fillStyle = (r + q) % 2 ? '#c4d2d4' : '#b8c8ca'; c.fillRect(360 + q * 70, 422 + r * 20, 68, 18); }
+      if (scene.msg) { c.fillStyle = 'rgba(10,10,10,.85)'; c.fillRect(356, 496, 428, 60); text(c, scene.msg, 570, 526, '600 22px "IBM Plex Mono",monospace', Math.random() < .1 ? '#fff' : '#d33'); }
+      else { const cur = Math.floor(t * 2) % 2; if (cur) rect(c, 362 + 70 * 2, 424 + 20 * 5, 2, 14, '#222'); }
+      c.fillStyle = rad(c, 570, 520, 30, 500, [[0, 'rgba(180,210,215,.12)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(0, 200, 1200, 700); c.restore();
+      // clock hands
+      const stuck = DR() > 55; const mins = stuck ? 0 : (scene.clockMin || 0) + t / 30;
+      const hA = ((stuck ? 9 : (scene.clockH || 9)) % 12 + mins / 60) / 12 * Math.PI * 2 - Math.PI / 2, mA = (mins % 60) / 60 * Math.PI * 2 - Math.PI / 2;
+      line(c, 250, 250, 250 + Math.cos(hA) * 18, 250 + Math.sin(hA) * 24, '#222', 5); line(c, 250, 250, 250 + Math.cos(mA) * 28, 250 + Math.sin(mA) * 38, '#222', 3);
+      // Marta
+      if (!scene.noMarta) {
+        const mf = has('verde') ? Math.min(faceFade(), .2) : faceFade();
+        bust(c, 1400, 430, 1.55, Object.assign({}, LOOK.marta, { fade: mf, dir: -.7, look: F('marta') ? null : 'down', smile: scene.martaSmile, sad: !F('marta') }));
+        poly(c, [1130, 540, 1600, 520, 1600, 900, 1130, 900], '#646d75'); rect(c, 1130, 528, 470, 14, '#c8c9c4');
+        for (let i = 0; i < 4; i++) line(c, 1130 + i * 120, 540, 1130 + i * 120, 900, 'rgba(0,0,0,.12)', 3);
+      }
+      // plant on partition
+      const w = F('water') || 0, green = w >= 2;
+      rrect(c, 1196, 478, 56, 52, 6, '#8c5a3c');
+      const pl = green ? k : c;
+      for (let i = 0; i < 7; i++) {
+        const a = -Math.PI / 2 + (i - 3) * .32 + Math.sin(t + i) * (green ? .04 : 0);
+        const L = green ? 58 + (i % 3) * 12 : 30 + (i % 3) * 6;
+        pl.save(); pl.translate(1224, 480); pl.rotate(a + (green ? 0 : .5 * Math.sign(i - 3)));
+        ell(pl, 0, -L / 2, green ? 10 : 6, L / 2, green ? (i % 2 ? '#4caf50' : '#66c46d') : '#6b6256'); pl.restore();
+      }
+      // exit sign (always green: the only colour the office allows)
+      k.fillStyle = '#1fbf4a'; k.fillRect(958, 316, 40, 16); text(k, 'EXIT', 978, 324, '600 10px monospace', '#eaffef');
+      k.fillStyle = rad(k, 978, 324, 2, 60, [[0, 'rgba(40,220,90,.35)'], [1, 'rgba(40,220,90,0)']]); k.fillRect(900, 264, 160, 120);
+      if (F('key')) { k.fillStyle = 'rgba(214,52,40,.85)'; k.fillRect(958, 338, 40, 117); ell(k, 990, 400, 3, 3, '#eee'); }
+      if (DR() > 70 && Math.sin(t * .5) > .3) processFigure(c, 978, 470, 170, clamp((DR() - 70) / 20));
+      if (stareFlash(t) && scene.heads) scene.heads.forEach(([x, y, s]) => { ell(c, x - 11 * s, y, 3.5 * s, 3.5 * s, '#fff'); ell(c, x + 11 * s, y, 3.5 * s, 3.5 * s, '#fff'); });
+      if (f < 1) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, 0, VW, VH); }
+      if (CFG.event === 'blackout') { c.fillStyle = 'rgba(0,0,10,.55)'; c.fillRect(0, 0, VW, VH); }
+    }
+  },
+  // ============================================================ KITCHEN
+  kitchen: {
+    amb: 'office',
+    key: () => 'k' + Math.round(DR() / 10),
+    bg(c) {
+      const R = room({ x0: 430, y0: 200, x1: 1170, y1: 600 });
+      drawRoom(c, R, { ceil: '#9a9c97', floor: '#6c6a63', wall: '#b9b6aa', back: '#c3c1b6', floorLines: 'rgba(0,0,0,.12)' });
+      for (let x = 430; x < 1170; x += 30) line(c, x, 420, x, 600, 'rgba(0,0,0,.1)', 1);
+      for (let y = 420; y < 600; y += 30) line(c, 430, y, 1170, y, 'rgba(0,0,0,.1)', 1);
+      ceilLight(c, R, .35, .65, .3, .45);
+      // window
+      rect(c, 730, 250, 130, 140, '#666'); c.fillStyle = lin(c, 0, 256, 0, 384, [[0, '#8f979c'], [1, '#c4c8c8']]); c.fillRect(736, 256, 118, 128); rect(c, 792, 256, 4, 128, '#666');
+      // counter + sink
+      rect(c, 700, 470, 180, 130, '#7a746a'); rect(c, 694, 462, 192, 14, '#a39e93'); ell(c, 790, 469, 50, 6, '#5d5e5c');
+      // vending machine
+      rect(c, 470, 230, 230, 370, '#2b2d31'); rect(c, 470, 230, 230, 10, '#3d4046');
+      rect(c, 690, 230, 10, 370, '#1d1f22');
+      rect(c, 600, 300, 80, 140, '#1a1b1d');
+      for (let i = 0; i < 8; i++) { rect(c, 612 + (i % 2) * 34, 312 + Math.floor(i / 2) * 30, 26, 18, '#4d5055'); }
+      rect(c, 495, 470, 120, 90, '#111'); rect(c, 535, 520, 44, 40, '#333');
+      text(c, 'CAFFÈ', 540, 450, '600 18px "IBM Plex Mono",monospace', '#9c8a70');
+      text(c, '€ 0,50', 640, 460, '600 12px "IBM Plex Mono",monospace', '#888');
+      // fridge
+      rrect(c, 900, 225, 220, 375, 10, '#d6d8d4'); line(c, 900, 360, 1120, 360, '#a9aba7', 3);
+      rect(c, 1095, 270, 8, 70, '#999'); rect(c, 1095, 390, 8, 120, '#999');
+      text(c, 'BACHECA', 1010, 245, '600 10px "IBM Plex Mono",monospace', '#888');
+      // table front
+      ell(c, 380, 860, 300, 70, '#7b6a58'); rect(c, 370, 860, 20, 60, '#3d342b');
+    },
+    draw(c, k, t) {
+      // machine panel light
+      const f = flick(t, 9);
+      c.fillStyle = `rgba(200,220,210,${.85 * f})`; c.fillRect(495, 260, 180, 170);
+      for (let i = 0; i < 12; i++) { c.fillStyle = ['#7a5a3e', '#3e2a1e', '#a88a62', '#e0d6c2'][i % 4]; c.fillRect(505 + (i % 4) * 42, 270 + Math.floor(i / 4) * 52, 34, 40); }
+      c.fillStyle = rad(c, 585, 345, 10, 360, [[0, `rgba(210,230,220,${.18 * f})`], [1, 'rgba(0,0,0,0)']]); c.fillRect(200, 100, 800, 700);
+      // post-its: the only things people bring here are colours
+      const n = Math.min(14, Math.max(3, NET.postits.length));
+      const pc = ['#f2d03b', '#f0a0b4', '#9fd3e8', '#b7e29a', '#f3b36b'];
+      for (let i = 0; i < n; i++) {
+        const px = 918 + (i % 4) * 48 + (i * 7 % 9), py = 262 + Math.floor(i / 4) * 58 + (i * 13 % 11);
+        k.save(); k.translate(px + 18, py + 18); k.rotate(((i * 37) % 20 - 10) / 100);
+        k.fillStyle = pc[i % pc.length]; k.fillRect(-18, -18, 38, 38); k.fillStyle = 'rgba(0,0,0,.25)';
+        for (let l = 0; l < 3; l++) k.fillRect(-12, -9 + l * 8, 22 - l * 5, 2);
+        k.restore();
+      }
+      // Gianni
+      const gone = scene.gianniGone;
+      if (!scene.noGianni) {
+        const o = gone ? { skin: '#9b9b9b', hair: '#8a8a8a', style: 'bald', shirt: '#a3a3a3', tie: '#8a8a8a', fade: 1, pants: '#7a7a7a' }
+          : Object.assign({}, LOOK.gianni, { fade: has('giallo') ? Math.min(.15, faceFade()) : faceFade(), smile: scene.gSmile || has('giallo'), sad: !has('giallo'), dir: -.5 });
+        const hy = person(c, 1300, 890 + Math.sin(t * 1.1) * 2, 1.6, o);
+        rrect(c, 1180, hy + 290, 34, 44, 4, '#e8e6e0'); // cup
+        if (!gone) { c.globalAlpha = .25; for (let i = 0; i < 3; i++) { const sy = hy + 270 - ((t * 30 + i * 20) % 60); ell(c, 1197 + Math.sin(t * 2 + i) * 6, sy, 6, 10, '#fff'); } c.globalAlpha = 1; }
+      }
+      if (f < 1) { c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(0, 0, VW, VH); }
+    }
+  },
+  // ============================================================ MEETING
+  meeting: {
+    amb: 'office',
+    key: () => 'm' + Math.round(DR() / 10),
+    bg(c) {
+      const R = room({ x0: 500, y0: 200, x1: 1100, y1: 560 });
+      drawRoom(c, R, { ceil: '#8b8d88', floor: '#45403b', wall: '#9a9890', back: '#a5a39b' });
+      ceilLight(c, R, .3, .7, .2, .35); ceilLight(c, R, .3, .7, .55, .65);
+      rect(c, 590, 225, 420, 230, '#e8e8e4'); rect(c, 590, 225, 420, 8, '#888');
+      line(c, 630, 260, 630, 420, '#333', 2); line(c, 630, 420, 980, 420, '#333', 2);
+      c.beginPath(); c.moveTo(630, 380); for (let x = 0; x <= 350; x += 25) c.lineTo(630 + x, 380 + Math.sin(x) * 1.5); c.strokeStyle = '#b02a2a'; c.lineWidth = 4; c.stroke();
+      text(c, 'PRATICHE / SETTIMANA', 800, 245, '600 13px "IBM Plex Mono",monospace', '#444');
+      text(c, 'OBIETTIVO: +0%', 900, 300, '600 14px "IBM Plex Mono",monospace', '#b02a2a');
+      const cols = [['#5d6670', '#3a312c'], ['#7a6b5d', '#222'], ['#6a7a6a', '#6b5a4c']];
+      [[640, 400, .75], [570, 455, 1.0], [470, 540, 1.35]].forEach(([x, y, s], i) => bust(c, x, y, s, { shirt: cols[i][0], hair: cols[i][1], fade: faceFade(), dir: .8, look: 'down' }));
+      [[960, 400, .75], [1030, 455, 1.0], [1130, 540, 1.35]].forEach(([x, y, s], i) => bust(c, x, y, s, { shirt: cols[2 - i][0], hair: cols[2 - i][1], fade: faceFade(), dir: -.8, style: i === 1 ? 'long' : '' }));
+      poly(c, [690, 540, 910, 540, 1260, 900, 340, 900], '#5b4636');
+      c.fillStyle = lin(c, 0, 540, 0, 900, [[0, 'rgba(255,255,255,.05)'], [1, 'rgba(255,255,255,.12)']]); poly(c, [690, 540, 910, 540, 1260, 900, 340, 900], c.fillStyle);
+      for (const [x, y] of [[740, 600], [860, 600], [640, 700], [960, 700]]) rect(c, x - 30, y, 60, 40, '#ddd');
+    },
+    draw(c, k, t) {
+      const o = Object.assign({}, LOOK.valenti, { fade: scene.vGlitch ? (Math.random() < .5 ? 1 : 0) : faceFade() * .8 });
+      person(c, 800 + Math.sin(t * .8) * 30, 600, .95, o);
+      if (scene.turn) [[640, 400, .75], [570, 455, 1.0], [470, 540, 1.35], [960, 400, .75], [1030, 455, 1.0], [1130, 540, 1.35]].forEach(([x, y, s]) => { ell(c, x - 11 * s, y, 3.5 * s, 3.5 * s, '#fff'); ell(c, x + 11 * s, y, 3.5 * s, 3.5 * s, '#fff'); });
+      const f = flick(t, 4); if (f < 1) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, 0, VW, VH); }
+    }
+  },
+  // ============================================================ LAKE
+  lake: {
+    amb: 'lake', calm: true, forceGray: .06,
+    key: () => 'lake',
+    bg(c) {
+      c.fillStyle = lin(c, 0, 0, 0, 470, [[0, '#7fb2d6'], [.6, '#cfe1e8'], [1, '#f6e3c3']]); c.fillRect(0, 0, VW, 470);
+      ell(c, 1150, 420, 70, 70, '#fff4d6');
+      c.fillStyle = rad(c, 1150, 420, 60, 600, [[0, 'rgba(255,230,180,.6)'], [1, 'rgba(255,230,180,0)']]); c.fillRect(0, 0, VW, 900);
+      const mts = [[470, '#8aa4b8', 140], [470, '#6f8ea6', 90]];
+      mts.forEach(([base, col, h], j) => { c.beginPath(); c.moveTo(0, base); for (let x = 0; x <= VW; x += 40) c.lineTo(x, base - h * (.4 + .6 * Math.abs(Math.sin(x * .004 + j * 2)))); c.lineTo(VW, base); c.closePath(); c.fillStyle = col; c.fill(); });
+      c.fillStyle = lin(c, 0, 470, 0, 760, [[0, '#7aa9c9'], [1, '#2f6c98']]); c.fillRect(0, 470, VW, 300);
+      c.fillStyle = '#4f7a3a'; c.beginPath(); c.moveTo(0, 740); for (let x = 0; x <= VW; x += 30) c.lineTo(x, 740 + Math.sin(x * .02) * 10); c.lineTo(VW, 900); c.lineTo(0, 900); c.fill();
+      // bench
+      rect(c, 520, 700, 560, 22, '#6b4a30'); rect(c, 520, 650, 560, 16, '#6b4a30'); rect(c, 550, 722, 16, 90, '#3a2a1c'); rect(c, 1034, 722, 16, 90, '#3a2a1c');
+    },
+    draw(c, k, t) {
+      for (let i = 0; i < 40; i++) { const y = 480 + (i * 7) % 260, x = (i * 173 + t * (10 + i % 5)) % (VW + 200) - 100; c.fillStyle = `rgba(255,250,230,${.15 + .2 * Math.sin(t * 2 + i)})`; c.fillRect(x, y, 30 + i % 40, 2); }
+      c.fillStyle = 'rgba(255,240,200,.4)'; c.fillRect(1130 + Math.sin(t) * 8, 480, 40, 260);
+      // you, from behind
+      rect(c, 760, 560, 120, 110, '#cfd2d4'); ell(c, 820, 520, 40, 48, '#2f2925');
+      for (let i = 0; i < 3; i++) { const bx = (t * 40 + i * 400) % (VW + 100) - 50, by = 200 + i * 60 + Math.sin(t * 3 + i) * 10; line(c, bx - 10, by, bx, by + 5, '#334', 2); line(c, bx, by + 5, bx + 10, by, '#334', 2); }
+    }
+  },
+  // ============================================================ STAIRS
+  stairs: {
+    amb: 'stairs',
+    key: () => 's' + Math.round(DR() / 10),
+    bg(c) {
+      const R = room({ x0: 380, y0: 170, x1: 1220, y1: 660 });
+      drawRoom(c, R, { ceil: '#545450', floor: '#5d5d59', wall: '#6d6d68', back: '#76766f' });
+      for (let i = 0; i < 40 + DR(); i++) { c.fillStyle = `rgba(30,30,25,${rnd(.03, .1)})`; c.fillRect(rnd(380, 1220), rnd(170, 660), rnd(10, 80), rnd(3, 40)); }
+      rect(c, 380, 560, 840, 8, '#4a4a46');
+      text(c, 'PIANO 4', 800, 250, '600 72px "IBM Plex Mono",monospace', 'rgba(30,30,28,.75)');
+      for (const x of [440, 990]) { rect(c, x, 330, 170, 330, '#4b4c4e'); rect(c, x + 10, 340, 150, 320, '#5e6063'); rect(c, x + 130, 490, 18, 8, '#bbb'); }
+      // stairs up (left foreground)
+      for (let i = 0; i < 8; i++) { poly(c, [0, 900 - i * 60, 260 - i * 18, 900 - i * 60, 260 - i * 18, 860 - i * 60, 0, 860 - i * 60], i % 2 ? '#585854' : '#62625d'); }
+      line(c, 40, 380, 300, 800, '#9a9a94', 8);
+      // stairs down (right foreground)
+      for (let i = 0; i < 6; i++) poly(c, [1600, 760 + i * 30, 1300 + i * 30, 760 + i * 30, 1300 + i * 30, 790 + i * 30, 1600, 790 + i * 30], i % 2 ? '#3d3d3a' : '#454542');
+      c.fillStyle = lin(c, 1300, 760, 1600, 900, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.85)']]); c.fillRect(1300, 760, 300, 140);
+    },
+    draw(c, k, t) {
+      const L = scene.land || {};
+      const marks = [[525, 420], [1075, 420]];
+      marks.forEach(([x, y], i) => {
+        const col = L.marks && L.marks[i];
+        if (col) { k.save(); k.globalAlpha = .9; k.fillStyle = col; k.beginPath(); for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2 - Math.PI / 2; k.ellipse(x + Math.cos(a) * 22, y + Math.sin(a) * 22, 8, 14, a, 0, 7); } k.ellipse(x, y + 10, 18, 20, 0, 0, 7); k.fill(); k.restore(); }
+        else { c.globalAlpha = .45; ell(c, x, y + 10, 18, 20, '#3a3a38'); c.globalAlpha = 1; }
+      });
+      k.fillStyle = '#25d65a'; k.fillRect(790, 300, 20, 10); k.fillStyle = rad(k, 800, 305, 2, 220, [[0, 'rgba(40,220,90,.25)'], [1, 'rgba(40,220,90,0)']]); k.fillRect(600, 150, 400, 400);
+      if (scene.marta) bust(c, 1360, 470, 1.6, Object.assign({}, LOOK.marta, { dir: -.6, fade: 0, smile: true }));
+      if (DR() > 55) processFigure(c, 210, 420, 380, clamp((DR() - 55) / 30) * (.6 + .4 * Math.sin(t * 2)));
+      const f = flick(t, 7); if (f < 1) { c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH); }
+    }
+  },
+  // ============================================================ OUTSIDE (ending)
+  outside: {
+    amb: 'outside', calm: true, forceGray: 0,
+    key: () => 'out' + (scene.together ? 1 : 0),
+    bg(c) {
+      c.fillStyle = lin(c, 0, 0, 0, 600, [[0, '#ffb07a'], [.5, '#ffd9a8'], [1, '#fff1d6']]); c.fillRect(0, 0, VW, 620);
+      ell(c, 800, 560, 120, 120, '#fff8e0'); c.fillStyle = rad(c, 800, 560, 100, 900, [[0, 'rgba(255,220,160,.7)'], [1, 'rgba(255,220,160,0)']]); c.fillRect(0, 0, VW, VH);
+      const cols = ['#c86a5a', '#d9a04a', '#5f8fb0', '#7aa86a', '#b07ab0', '#d97a4a'];
+      for (let i = 0; i < 12; i++) { const x = i < 6 ? i * 105 - 40 : 1050 + (i - 6) * 105, h = 260 + (i * 71) % 220; rect(c, x, 620 - h, 110, h, cols[i % 6]); for (let wy = 640 - h; wy < 600; wy += 34) for (let wx = x + 14; wx < x + 96; wx += 30) rect(c, wx, wy, 16, 20, 'rgba(255,245,210,.8)'); }
+      poly(c, [0, 620, VW, 620, VW, 900, 0, 900], '#6a6a72'); poly(c, [600, 620, 1000, 620, 1500, 900, 100, 900], '#7f7f88');
+      for (let i = 0; i < 6; i++) { const y = 640 + i * 45, w = 6 + i * 6; rect(c, 800 - w / 2, y, w, 24 + i * 4, '#f4f0e0'); }
+    },
+    draw(c, k, t) {
+      const walk = Math.min(1, (t - (scene.t0 || 0)) / 14);
+      const s = 1.2 - walk * .7, x = 760 - walk * 30, y = 900 - walk * 230;
+      person(c, x, y, s * .9, Object.assign({}, LOOK.me, { fade: 1, skin: '#2f2925', shirt: '#cfd2d4' }));
+      if (scene.together) person(c, x + 120 * s, y, s * .85, Object.assign({}, LOOK.marta, { fade: 1, skin: '#4a2f24' }));
+      for (let i = 0; i < 4; i++) { const bx = (t * 50 + i * 380) % (VW + 100) - 50, by = 160 + i * 50 + Math.sin(t * 3 + i) * 10; line(c, bx - 12, by, bx, by + 6, '#553', 2); line(c, bx, by + 6, bx + 12, by, '#553', 2); }
+    }
+  },
+  // ============================================================ ABSORBED (ending)
+  absorbed: {
+    amb: 'office', forceGray: 1,
+    key: () => 'abs',
+    bg(c) {
+      rect(c, 0, 0, VW, VH, '#1b1b1c');
+      for (let r = 0; r < 6; r++) {
+        const y = 300 + r * 90, s = .45 + r * .22;
+        for (let q = 0; q < 9; q++) { const x = 800 + (q - 4) * 190 * s; bust(c, x, y - 60 * s, s, { skin: '#8d8d8d', hair: '#7a7a7a', shirt: '#6d6d6d', fade: 1, look: 'down' }); rect(c, x - 100 * s, y + 40 * s, 200 * s, 90 * s, '#2b2b2c'); }
+      }
+      c.fillStyle = rad(c, 800, 760, 40, 420, [[0, 'rgba(230,230,230,.25)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(0, 0, VW, VH);
+    },
+    draw(c, k, t) { }
+  },
+  black: { amb: 'none', key: () => 'blk', bg(c) { rect(c, 0, 0, VW, VH, '#000'); }, draw() { } },
+};
+
+function setScene(id, opts = {}) {
+  if (scene && scene.leave) scene.leave();
+  const base = SCENES[id];
+  scene = Object.assign(Object.create(base), { id }, opts);
+  A.amb(scene.amb); A.mood(); applyFilter(); clearHot();
+}
+function getBg() {
+  const key = scene.id + '|' + scene.key() + '|' + Q;
+  let b = bgCache.get(key);
+  if (!b) {
+    b = document.createElement('canvas'); b.width = Math.round(VW * Q); b.height = Math.round(VH * Q);
+    const c = b.getContext('2d'); c.setTransform(Q, 0, 0, Q, 0, 0); scene.bg(c);
+    if (bgCache.size > 30) bgCache.delete(bgCache.keys().next().value);
+    bgCache.set(key, b);
+  }
+  return b;
+}
+// grain
+const gc = $('grain').getContext('2d'), gimg = gc.createImageData(320, 180);
+function grain() { const d = gimg.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } gc.putImageData(gimg, 0, 0); }
+let frame = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  tNow = (now - T0) / 1000; frame++;
+  if (frame % 3 === 0) grain();
+  if (!scene) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(getBg(), 0, 0);
+  ctx.setTransform(Q, 0, 0, Q, 0, 0);
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cc.width, cc.height); cx.setTransform(Q, 0, 0, Q, 0, 0);
+  try { scene.draw(ctx, cx, tNow); } catch (e) { console.error(e); }
+  // horror: screen tear at high gray
+  if (DR() > 82 && !scene.calm && Math.random() < .02) {
+    const y = rnd(0, cw.height), h = rnd(8, 40);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(cw, 0, y, cw.width, h, rnd(-30, 30), y, cw.width, h);
+  }
+}
+
+// ---------------------------------------------------------------- UI: HUD / toast / flash / card
+function updateHUD() {
+  const g = DR();
+  const gw = L('GIORNO ', 'DAY ');
+  $('hDay').textContent = g > 88 && Math.random() < .5 ? gw + String(S.day).repeat(3) : gw + S.day;
+  $('hWd').textContent = L('LUNEDÌ', 'MONDAY');
+  $('hMood').textContent = moodWord();
+  const slots = $('prism').querySelectorAll('i');
+  COLORS.forEach((c, i) => {
+    const on = has(c.k);
+    slots[i].style.background = on ? c.c : 'rgba(255,255,255,.03)';
+    slots[i].style.boxShadow = on ? `0 0 10px ${c.c}` : 'none';
+    slots[i].style.borderColor = on ? c.c : 'rgba(255,255,255,.22)';
+    slots[i].title = on ? `${cn(c)} — ${ct(c)}` : '?';
+  });
+}
+function setTime(s) { $('hTime').textContent = s; }
+function hud(on) { $('hud').classList.toggle('hide', !on); }
+let toastT;
+function toast(s, ms = 2600) { const t = $('toast'); t.textContent = T(s); t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
+function flash(col = '#fff', ms = 900, peak = .75) {
+  const f = $('flash'); f.style.transition = 'none'; f.style.background = col; f.style.opacity = peak;
+  requestAnimationFrame(() => { f.style.transition = `opacity ${ms}ms ease-out`; f.style.opacity = 0; });
+}
+async function fade(out, ms = 900) { const b = $('black'); b.style.transition = `opacity ${ms}ms`; b.style.opacity = out ? 1 : 0; await wait(ms); }
+async function card(d, w, q, ms = 2600) {
+  $('cD').textContent = d; $('cW').textContent = w || ''; $('cQ').textContent = q || '';
+  $('card').classList.remove('hide'); await fade(false, 500); await wait(ms); await fade(true, 600); $('card').classList.add('hide');
+}
+
+// ---------------------------------------------------------------- DIALOGUE
+const dlg = $('dlg'), dname = $('dname'), dtext = $('dtext'), dch = $('dchoices'), dnext = $('dnext');
+let typing = null;
+const GLITCH = ['grigio', 'uguale', 'sempre', 'ancora', 'lunedì', 'resta'], GLITCH_EN = ['gray', 'same', 'always', 'again', 'monday', 'stay'];
+function fmt(s) { return s.replace(/\{N\}/g, Name()).replace(/\{NN\}/g, S.name).replace(/\{C\}/g, 'Ferri'); }
+function glitch(s) {
+  if (DR() < 56 || (scene && scene.calm)) return s;
+  const p = (DR() - 56) / 120;
+  return s.split(' ').map(w => {
+    const r = Math.random();
+    if (r < p * .6) return w + ' ' + w;
+    if (r < p * .9 && w.length > 3) return `<span class="g">${pick(LANG === 'en' ? GLITCH_EN : GLITCH)}</span>`;
+    return w;
+  }).join(' ');
+}
+function say(who, txt, o = {}) {
+  return new Promise(res => {
+    dlg.classList.remove('hide'); dch.innerHTML = ''; dnext.style.display = 'none';
+    dname.textContent = T(who) || ''; dname.style.color = o.col || '';
+    dtext.className = who ? '' : 'narr';
+    const full = o.raw ? fmt(T(txt)) : glitch(fmt(T(txt)));
+    let i = 0, done = false;
+    const plain = full.replace(/<[^>]+>/g, '');
+    const finish = () => { done = true; clearInterval(typing); dtext.innerHTML = full; dnext.style.display = 'block'; };
+    dtext.textContent = '';
+    const speed = o.speed || 22;
+    clearInterval(typing);
+    typing = setInterval(() => {
+      i += 1; if (i % 2 === 0 && who) A.blip();
+      if (i >= plain.length) { finish(); return; }
+      dtext.textContent = plain.slice(0, i);
+    }, speed);
+    const adv = e => {
+      if (e && e.target.closest && e.target.closest('#dchoices,#menuBtn,#menu')) return;
+      if (e && e.type === 'keydown' && !['Space', 'Enter', 'KeyE'].includes(e.code)) return;
+      if (!done) { finish(); return; }
+      off(); res();
+    };
+    const off = () => { removeEventListener('pointerdown', adv); removeEventListener('keydown', adv); };
+    setTimeout(() => { addEventListener('pointerdown', adv); addEventListener('keydown', adv); }, 120);
+  });
+}
+const narr = (t, o) => say(null, t, o);
+// choices: [{t, v, rt (routine), nw (new), show}]
+function choose(opts, prompt) {
+  opts = opts.filter(o => !('show' in o) || o.show);
+  return new Promise(async res => {
+    if (prompt) { dname.textContent = ''; dtext.className = 'narr'; dtext.innerHTML = glitch(fmt(T(prompt))); }
+    dlg.classList.remove('hide'); dnext.style.display = 'none'; dch.innerHTML = '';
+    // Anti-tocco accidentale: le scelte si attivano solo dopo una breve pausa
+    // e solo con un tocco che INIZIA sul pulsante dopo che sono comparse.
+    // Se l'utente continua a toccare, il timer riparte: si attiva solo dopo una pausa.
+    let armed = false, downOn = null, armT = 0;
+    dch.classList.add('wait');
+    const arm = () => { armed = true; dch.classList.remove('wait'); removeEventListener('pointerdown', rearm, true); };
+    const rearm = () => { if (armed) return; clearTimeout(armT); armT = setTimeout(arm, 450); };
+    armT = setTimeout(arm, 650);
+    addEventListener('pointerdown', rearm, true);
+    opts.forEach((o, i) => {
+      const b = document.createElement('button'); b.textContent = fmt(T(o.t)); if (o.rt) b.className = 'rt'; if (o.nw) b.className = 'nw';
+      b.addEventListener('pointerdown', () => { downOn = armed ? b : null; });
+      const pickIt = () => { clearTimeout(armT); removeEventListener('pointerdown', rearm, true); dch.classList.remove('wait'); A.ui(); dch.innerHTML = ''; if (o.rt) addGray(.8); res(o.v !== undefined ? o.v : i); };
+      b.onclick = e => {
+        e.stopPropagation();
+        if (!armed) return;
+        if (e.detail > 0 && downOn !== b) return; // click da tocco iniziato prima/altrove
+        removeEventListener('keydown', kh); pickIt();
+      };
+      b._pick = pickIt;
+      dch.appendChild(b);
+    });
+    const kh = e => { if (!armed || e.repeat) return; const n = parseInt(e.key); if (n >= 1 && n <= opts.length) { removeEventListener('keydown', kh); dch.children[n - 1]._pick(); } };
+    addEventListener('keydown', kh);
+  });
+}
+function hideDlg() { dlg.classList.add('hide'); }
+
+// ---------------------------------------------------------------- HOTSPOTS
+const hot = $('hot');
+function clearHot() { hot.innerHTML = ''; }
+// spots: [{id,x,y,w,h,l,rt,show}]
+function explore(spots) {
+  hideDlg();
+  return new Promise(res => {
+    clearHot();
+    spots.filter(s => !('show' in s) || s.show).forEach(s => {
+      const b = document.createElement('button'); b.className = 'hs ' + (s.rt ? 'r' : 's');
+      const w = s.w || 120, h = s.h || 120;
+      b.style.cssText = `left:${(s.x - w / 2) / VW * 100}%;top:${(s.y - h / 2) / VH * 100}%;width:${w / VW * 100}%;height:${h / VH * 100}%`;
+      b.innerHTML = `<span class="dot"></span><span class="lb">${esc(T(s.l))}</span>`;
+      b.onclick = e => { e.stopPropagation(); A.ui(); clearHot(); res(s.id); };
+      hot.appendChild(b);
+    });
+  });
+}
+
+// ---------------------------------------------------------------- COLOUR FRAGMENTS
+async function gainColor(k) {
+  if (has(k)) return;
+  const i = COLORS.findIndex(c => c.k === k), c = COLORS[i];
+  S.colors[k] = S.day; addGray(-11);
+  flash(c.c, 1600, .55); A.chime(i); A.mood();
+  await wait(500);
+  toast(L(`FRAMMENTO ${c.n} — ${c.t}`, `FRAGMENT ${c.ne} — ${c.te}`), 3600);
+  updateHUD(); save(); NETW.inc('cracks');
+  await say('', L(`Qualcosa si incrina. Nel grigio entra un colore: ${c.n.toLowerCase()}.`, `Something cracks. A color seeps into the gray: ${c.ne.toLowerCase()}.`), { raw: true });
+}
+
+// ---------------------------------------------------------------- PRATICHE (minigioco)
+const SURN = ['ROSSI', 'BIANCHI', 'COLOMBO', 'RICCI', 'MARINO', 'GRECO', 'BRUNO', 'GALLO', 'CONTI', 'DE LUCA', 'MANCINI', 'COSTA', 'GIORDANO', 'RIZZO', 'LOMBARDI', 'MORETTI', 'BARBIERI', 'FONTANA', 'SANTORO', 'MARIANI'];
+const NAMES = ['MARIO', 'GIULIA', 'PAOLO', 'ANNA', 'LUIGI', 'SARA', 'MARCO', 'ELENA', 'FRANCO', 'LAURA', 'ROBERTO', 'SILVIA', 'GIORGIO', 'MARTA', 'SERGIO', 'RITA'];
+const PLT = 'ABCDEFGHJKLMNPRSTVWXYZ';
+const plate = () => pick(PLT) + pick(PLT) + String(rnd(100, 999) | 0) + pick(PLT) + pick(PLT);
+const ds = d => d.toLocaleDateString(LOC(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+function mutate(s) { const a = s.split(''); let i = (rnd(a.length) | 0); if (a[i] === ' ') i = 0; const sw = { O: 'Q', E: 'F', I: 'L', A: 'R', N: 'M', C: 'G', '1': '7', '3': '8', '5': '6', '0': '8', S: 'B', T: 'Y', R: 'P' }; a[i] = sw[a[i]] || (a[i] === 'A' ? 'E' : 'A'); return a.join(''); }
+function genPratica() {
+  const nm = pick(SURN) + ' ' + pick(NAMES), pl = plate(), pol = 'PX-' + (rnd(10000, 99999) | 0);
+  const dSin = new Date(2026, (rnd(12) | 0), (rnd(1, 28) | 0));
+  let scad = new Date(dSin.getTime() + rnd(20, 300) * 864e5);
+  const p = { form: { nm, pl, pol, d: ds(dSin), sig: true }, arch: { nm, pl, pol, scad: '' }, ok: true, why: '' };
+  const r = Math.random();
+  if (r < .17) { p.form.pl = mutate(pl); p.ok = false; p.why = 'targa'; }
+  else if (r < .34) { p.arch.nm = mutate(nm); p.ok = false; p.why = 'intestatario'; }
+  else if (r < .48) { scad = new Date(dSin.getTime() - rnd(5, 200) * 864e5); p.ok = false; p.why = 'scaduta'; }
+  else if (r < .6) { p.form.sig = false; p.ok = false; p.why = 'firma'; }
+  p.arch.scad = ds(scad);
+  return p;
+}
+function sigSVG() { let d = 'M5 30'; let x = 5; for (let i = 0; i < 9; i++) { x += rnd(10, 22); d += ` Q${x - 6} ${rnd(0, 40) | 0} ${x} ${rnd(12, 34) | 0}`; } return `<svg width="220" height="44"><path d="${d}" stroke="#1d2a6b" stroke-width="2" fill="none"/></svg>`; }
+function renderPratica(p, special) {
+  const f = (a, b) => `<div class="f"><span>${a}</span><span>${b}</span></div>`;
+  const gl = DR() > 65 ? ' glitchy' : '';
+  $('pForm').innerHTML = `<h3>${L('MODULO CID — DENUNCIA DI SINISTRO', 'CLAIM FORM — ACCIDENT REPORT')}</h3>` +
+    f(L('Assicurato', 'Insured'), p.form.nm) + f(L('Targa veicolo', 'Vehicle plate'), p.form.pl) + f(L('Polizza n°', 'Policy no.'), p.form.pol) + f(L('Data sinistro', 'Date of incident'), p.form.d) +
+    `<div class="f"><span>${L('Firma assicurato', 'Signature of insured')}</span><span></span></div><div class="sig">${p.form.sig ? sigSVG() : `<span style="position:absolute;left:8px;bottom:6px;color:#999;font-size:11px">${L('— assente —', '— missing —')}</span>`}</div>` +
+    (special ? `<div class="desc">${special}</div>` : '');
+  $('pArch').innerHTML = `<h3>${L('ARCHIVIO POLIZZE', 'POLICY ARCHIVE')}</h3>` + f(L('Intestatario', 'Policyholder'), p.arch.nm) + f(L('Targa', 'Plate'), p.arch.pl) + f(L('Polizza n°', 'Policy no.'), p.arch.pol) + f(L('Valida fino al', 'Valid until'), p.arch.scad) +
+    `<div style="margin-top:14px;font-size:10px;color:#777;letter-spacing:.1em">${L('ESTRATTO AUTOMATICO · NON MODIFICARE', 'AUTOMATIC EXTRACT · DO NOT EDIT')}</div>`;
+  $('pForm').className = 'doc' + gl; $('pArch').className = 'doc arch' + gl;
+}
+const SELF_DAMAGE = [
+  'Descrizione del danno: «Non ricordo l\'ultima volta che ho riso. Non ricordo la voce di mia sorella. Ogni mattina mi alzo e qualcuno usa il mio corpo per venire qui.»',
+];
+function praticaSession(n, label) {
+  return new Promise(async res => {
+    const ov = $('prat'); ov.classList.remove('hide'); hideDlg();
+    let i = 0, errs = 0; let queue = 1284 + S.day * 37;
+    const specialAt = (!has('rosso') && (S.day >= 3 || S.gray >= 45) && label === 'mattina') ? 2 : -1;
+    const next = () => {
+      if (i >= n) { ov.classList.add('hide'); S.errors += errs; res(errs); return; }
+      $('pCount').textContent = `${L('PRATICA', 'CLAIM')} ${i + 1}/${n}`;
+      $('pQueue').textContent = L('IN CODA: ', 'IN QUEUE: ') + (queue += (rnd(2, 9) | 0)).toLocaleString(LOC());
+      $('pErr').textContent = errs ? L(`ERRORI: ${errs} — segnalati al Dott. Valenti`, `ERRORS: ${errs} — reported to Dr. Valenti`) : '';
+      let p, special = null;
+      if (i === specialAt) {
+        p = { form: { nm: S.name + ' FERRI', pl: '— — —', pol: 'VITA-0001', d: L('da anni', 'for years'), sig: true }, arch: { nm: S.name + ' FERRI', pl: '—', pol: 'VITA-0001', scad: '—' }, self: true };
+        special = T(SELF_DAMAGE[0]);
+      } else p = genPratica();
+      renderPratica(p, special);
+      const decide = async ok => {
+        $('bApp').onclick = $('bRej').onclick = null;
+        const st = $('pStamp'); st.textContent = ok ? L('APPROVATA', 'APPROVED') : L('RESPINTA', 'REJECTED'); st.style.color = st.style.borderColor = ok ? '#1f5a2a' : '#8c1d14';
+        st.classList.add('on'); A.stamp(ok); await wait(650); st.classList.remove('on');
+        if (p.self) {
+          ov.classList.add('hide');
+          if (ok) {
+            await narr('Il timbro è ancora umido. APPROVATA. Per la prima volta, qualcuno ha riconosciuto il danno.');
+            await narr('Il danno è reale. Il danno sei tu, ed è stato registrato.');
+            await gainColor('rosso');
+          } else {
+            A.sting(); await say('ALTOPARLANTE', 'Corretto. Il danno non sussiste. Prosegua.', { col: '#a33' }); addGray(5);
+          }
+          ov.classList.remove('hide');
+        } else {
+          addGray(.4);
+          if (ok !== p.ok) { errs++; A.tone(140, 'square', .2, .06); }
+        }
+        i++; setTime(label === 'mattina' ? `${9 + Math.floor(i * 3 / n)}:${String((i * 17) % 60).padStart(2, '0')}` : `${14 + Math.floor(i * 3 / n)}:${String((i * 23) % 60).padStart(2, '0')}`);
+        next();
+      };
+      $('bApp').onclick = () => decide(true); $('bRej').onclick = () => decide(false);
+    };
+    next();
+  });
+}
+
+// ---------------------------------------------------------------- MODAL
+function modal(title, html, onopen) {
+  return new Promise(res => {
+    $('mT').textContent = T(title); $('mB').innerHTML = html; $('modal').classList.remove('hide');
+    const close = v => { $('modal').classList.add('hide'); res(v); };
+    $('mX').onclick = () => close(null);
+    if (onopen) onopen(close);
+  });
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function cleanTxt(s, re, max) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(re, '').slice(0, max); }
+
+async function fridgeView() {
+  const list = NET.postits.slice(-24).reverse();
+  const items = list.length ? list.map((p, i) => `<div class="pi c${i % 5}">${esc(p.text)}<small>— ${esc(p.name)}</small></div>`).join('')
+    : `<div class="pi">${L('QUALCUNO HA LASCIATO SOLO IL MAGNETE.', 'SOMEONE LEFT JUST THE MAGNET.')}<small>— ${L('nessuno', 'nobody')}</small></div>`;
+  const can = !F('postDay' + S.day);
+  return modal('BACHECA DEL FRIGO', `<p class="muted">${L('Bigliettini lasciati da altri impiegati. Altre persone, in altri lunedì.', 'Notes left by other employees. Other people, on other Mondays.')}</p><div class="fridge">${items}</div>
+    <div class="row">${can ? `<button class="btn" id="wr">${L('LASCIA UN BIGLIETTO', 'LEAVE A NOTE')}</button>` : `<span class="muted">${L('Oggi hai già lasciato un biglietto.', 'You already left a note today.')}</span>`}</div>`,
+    close => { const b = $('wr'); if (b) b.onclick = () => close('write'); });
+}
+async function fridgeWrite() {
+  return modal('UN BIGLIETTO', `<p class="muted">${L('Quaranta caratteri. Maiuscolo. Qualcuno, in un altro lunedì, lo leggerà.', 'Forty characters. Capital letters. Someone, on another Monday, will read it.')}</p>
+    <textarea class="pt" id="ptx" maxlength="40" placeholder="${L('SCRIVI QUI', 'WRITE HERE')}"></textarea>
+    <div class="row"><button class="btn ghost" id="pc">${L('ANNULLA', 'CANCEL')}</button><button class="btn" id="ps">${L('ATTACCA', 'PIN IT')}</button></div>`,
+    close => {
+      const ta = $('ptx'); ta.focus();
+      ta.oninput = () => { ta.value = cleanTxt(ta.value, /[^A-Z0-9 .,!?'\-:]/g, 40); };
+      $('pc').onclick = () => close(null);
+      $('ps').onclick = () => { const v = cleanTxt(ta.value, /[^A-Z0-9 .,!?'\-:]/g, 40).trim(); if (v.length) close(v); };
+    });
+}
+async function badgeView() {
+  const list = NET.badges.slice(-30).reverse();
+  const items = list.length ? list.map(b => `<div class="bd"><div class="ph"></div><b>${esc(b.name)}</b>${L('GIORNO', 'DAY')} ${b.day | 0}</div>`).join('')
+    : ['ROSSI M.', 'CONTI A.', 'GALLO F.'].map((n, i) => `<div class="bd"><div class="ph"></div><b>${n}</b>${L('GIORNO', 'DAY')} ${[31, 112, 7][i]}</div>`).join('');
+  return modal('DIPENDENTI DEL MESE', `<p class="muted">${L('Fotografie sbiadite. Nessuno ricorda le loro facce. Sotto la bacheca, una targhetta: «Sono rimasti con noi».', 'Faded photographs. Nobody remembers their faces. Beneath the board, a small plaque: “They stayed with us.”')}</p><div class="badges">${items}</div>`);
+}
+
+// ---------------------------------------------------------------- GUITAR
+function guitar() {
+  return new Promise(res => {
+    const ov = $('gtr'); ov.classList.remove('hide'); hideDlg();
+    const neck = $('neck'); neck.innerHTML = '';
+    const freqs = [329.63, 246.94, 196, 146.83, 110, 82.41];
+    freqs.forEach((f, i) => {
+      const s = document.createElement('div'); s.className = 'str'; s.style.top = (22 + i * 38) + 'px'; s.style.height = (2 + i * .6) + 'px';
+      s.onpointerdown = s.onpointerenter = e => { if (e.type === 'pointerenter' && !e.buttons) return; A.pluck(f); s.classList.remove('v'); void s.offsetWidth; s.classList.add('v'); hit(); };
+      neck.appendChild(s);
+    });
+    const CH = { Am: [220, 261.63, 329.63, 440], F: [174.61, 220, 261.63, 349.23], C: [130.81, 196, 261.63, 329.63], G: [98, 196, 246.94, 392] };
+    const chords = $('chords'); chords.innerHTML = '';
+    let count = 0, seq = [];
+    const hit = () => { count++; if (count >= 14 && !done) end(); };
+    Object.keys(CH).forEach(k => {
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = k;
+      b.onclick = () => { CH[k].forEach((f, j) => setTimeout(() => A.pluck(f, .2), j * 35)); seq.push(k); count += 3; hit(); };
+      chords.appendChild(b);
+    });
+    let done = false;
+    const end = async () => { done = true; $('gtrP').textContent = T('La-minore. Fa. Do. Sol. La stanza, per un attimo, ha un suono che non è il ronzio del frigo.'); await wait(2600); ov.classList.add('hide'); $('gtrP').textContent = T('La chitarra rossa. Le corde sono vecchie, ma tengono. Le dita ricordano prima di te.'); res(); };
+  });
+}
+
+// ======================================================================
+//  STORIA
+// ======================================================================
+class Escape extends Error { }
+const PHASES = ['wake', 'bath', 'tram', 'lobby', 'deskAM', 'kitchen', 'meeting', 'deskPM', 'evening'];
+const V = (t, o) => say('DOTT. VALENTI', t, Object.assign({ col: '#b9a0a0' }, o));
+const G = (t, o) => say('GIANNI', t, Object.assign({ col: '#c9c09a' }, o));
+const M = (t, o) => say('MARTA', t, Object.assign({ col: '#b8a9c9' }, o));
+const O = (t, o) => say('OSVALDO', t, Object.assign({ col: '#a9b4c9' }, o));
+const C = (t, o) => say('CHIARA', t, Object.assign({ col: '#e0b0a0' }, o));
+const SPK = (t, o) => say('ALTOPARLANTE', t, Object.assign({ col: '#999' }, o));
+const today = k => F(k + S.day);
+const markToday = k => F(k + S.day, 1);
+
+const DAYQ = [
+  'Ogni giorno è uguale. Questo non è un problema. Questo è il piano.',
+  'Ieri era lunedì. Anche oggi.',
+  'Ti svegli già stanco. Come se la notte fosse un turno in più.',
+  'Non ricordi cosa hai fatto ieri. Non importa: era uguale a oggi.',
+  'Qualcuno manca. Nessuno se ne accorge.',
+  "L'ufficio ti aspetta. L'ufficio aspetta sempre.",
+  'Il grigio non fa male. È questo il problema.',
+  'Sei ancora tu?',
+  'Ormai è uguale.',
+  "L'ultimo lunedì. Poi si ricomincia.",
+];
+const INTERCOM = [
+  'Buongiorno. Perpetua Assicurazioni ricorda: la puntualità è una forma di rispetto.',
+  'Si ricorda al personale che le pause hanno una durata massima di sette minuti.',
+  "Si ricorda al personale che l'uscita è al termine del turno.",
+  'Si ricorda al personale che il turno non ha termine. Correzione. Il turno termina alle diciotto.',
+  'Si ricorda al personale che è vietato fare domande ai colleghi durante le pause.',
+  'Si ricorda al personale che fuori non c\'è niente. Restate seduti.',
+  '{C}. Ti vediamo.',
+  'Sorridete. Sorridete. Sorridete.',
+  'Si ricorda al personale che nessuno se ne va. Nessuno se n\'è mai andato.',
+  'Buongiorno. Buongiorno. Buongiorno. Buongiorno.',
+];
+const RADIO = [
+  'Traffico intenso sulla tangenziale, come ogni mattina.',
+  'Previsioni: cielo coperto. Anche domani.',
+  'Indice di fiducia stabile per il dodicesimo mese consecutivo.',
+  'Dieci trucchi per essere più produttivi prima delle nove.',
+  'Studio: il 64% degli italiani fa un lavoro che non sceglierebbe di nuovo.',
+  'Il tuo amico Marco ha messo «mi piace» a una foto del 2019.',
+];
+
+async function dayCard() {
+  hud(false); hideDlg(); clearHot();
+  const g = DR() > 85;
+  const gw = L('GIORNO', 'DAY');
+  await card(g ? `${gw} ${S.day} ${S.day} ${S.day}` : `${gw} ${S.day}`, L('L U N E D Ì', 'M O N D A Y'), (S.cycle && S.day === 1 ? L('(Di nuovo.) ', '(Again.) ') : '') + T(DAYQ[Math.min(S.day - 1, DAYQ.length - 1)]), 2800);
+}
+
+const PH = {
+  // ------------------------------------------------------------ SVEGLIA
+  async wake() {
+    setScene('bedroom', { alarm: true }); setTime('06:47'); hud(true); updateHUD();
+    await fade(false, 1200); A.alarmOn();
+    const open = [
+      'Sei sveglio prima che la sveglia suoni. Come sempre. Come ogni lunedì.',
+      'La sveglia. Sei e quarantasette. Il corpo si alza da solo; tu arrivi dopo.',
+      'Sei e quarantasette. Il soffitto ha una crepa che non avevi mai notato.',
+      'La sveglia suona da un minuto. Forse da un anno.',
+      'Ti alzi. Ti sei già alzato. Ti alzerai.',
+    ];
+    await narr(open[Math.min(S.day - 1, open.length - 1)]);
+    await explore([{ id: 'a', x: 1100, y: 597, w: 180, h: 90, l: 'Spegni la sveglia', rt: true }]);
+    A.alarmOff(); scene.alarm = false; A.click(900, .05);
+    for (; ;) {
+      const id = await explore([
+        { id: 'tap', x: 800, y: 350, w: 280, h: 220, l: 'Alza la tapparella', show: !today('tap') },
+        { id: 'arm', x: 170, y: 520, w: 160, h: 320, l: 'Armadio', show: F('guitar') && !has('viola') },
+        { id: 'go', x: 520, y: 700, w: 300, h: 160, l: 'Alzati e vai in bagno', rt: true },
+      ]);
+      if (id === 'go') break;
+      if (id === 'tap') {
+        markToday('tap'); F('tapOpen', 1); inc('tap'); A.noiseHit(500, .6, .12); bgCache.clear();
+        if (F('tap') === 1) { await narr('Tiri su la tapparella. Fuori è ancora buio. Novembre, sei e quarantotto.'); await narr('Il cielo ha il colore del cemento bagnato. Però l\'hai guardato.'); addGray(-2); }
+        else if (!has('arancio')) {
+          bgCache.clear(); await wait(50);
+          await narr('Tiri su la tapparella. Stamattina, dietro i palazzi, c\'è una riga sottile.');
+          await narr('Arancione.');
+          await narr('Resti a guardarla un minuto intero. Arriverà il tram, arriverà il lavoro. Ma questo minuto è tuo.');
+          await gainColor('arancio'); bgCache.clear();
+        } else { await narr('L\'alba. C\'è stata ogni giorno. Eri tu a non esserci.'); addGray(-2); }
+      }
+      if (id === 'arm') await guitarScene();
+    }
+  },
+  // ------------------------------------------------------------ BAGNO
+  async bath() {
+    await fade(true, 400); setScene('bathroom'); setTime('06:52'); await fade(false, 500);
+    if (S.day === 1) await narr('Bagno. Acqua fredda. Non guardarti allo specchio: non serve, sai già cosa c\'è.');
+    for (; ;) {
+      const id = await explore([
+        { id: 'mir', x: 800, y: 360, w: 300, h: 260, l: 'Guardati allo specchio', show: !today('mir') },
+        { id: 'go', x: 800, y: 740, w: 360, h: 110, l: 'Lavati la faccia', rt: true },
+      ]);
+      if (id === 'go') {
+        A.noiseHit(2500, .9, .08, 'highpass');
+        await narr(pick(['Acqua fredda sulla faccia. Non ti asciughi bene. Non importa.', 'Ti lavi la faccia senza guardarla. Come si lava una tazza.', 'Acqua. Asciugamano. Fatto. Il gesto finisce prima che tu te ne accorga.']));
+        addGray(1); break;
+      }
+      markToday('mir');
+      const m = F('mir') || 0;
+      if (has('indaco')) { scene.smile = true; await narr('Il riflesso ti sorride. Ricambi. È una cosa piccola. È enorme.'); scene.smile = false; addGray(-2); }
+      else if (DR() > 75) { A.sting(); await narr('Nel vetro c\'è una testa. Non ha occhi. Non ha bocca.'); await narr('È la tua. Ti guarda lo stesso.'); addGray(2); }
+      else if (m === 0) { await narr('Ti guardi. Occhiaie. Barba di due giorni. Una ruga nuova, tra le sopracciglia.'); await narr('Da quanto tempo non ti guardavi davvero?'); F('mir', 1); addGray(-2); }
+      else if (m === 1) {
+        scene.lag = true; await narr('Ti avvicini al vetro.'); A.sting();
+        await narr('Il riflesso sbatte le palpebre. Un attimo dopo di te.'); scene.lag = false;
+        await narr('Un attimo. Solo un attimo. Te lo sei immaginato.'); F('mir', 2); addGray(-1);
+      } else if (nColors() < 1) { await narr('Il riflesso ti fissa. Sembra aspettare qualcosa. Non sai ancora cosa.'); }
+      else {
+        scene.lagX = 0; await narr('Il riflesso non si muove quando ti muovi.');
+        const R = (t) => say('RIFLESSO', t, { col: '#9fa6d8' });
+        await R('Ehi.'); await R('Mi senti? Sono ancora qui. Sotto.');
+        await R('Ogni mattina mi copri con un altro strato di grigio. Ma io ci sono ancora.');
+        const c = await choose([{ t: 'Ti sento.', v: 0, nw: true }, { t: 'Sto impazzendo.', v: 1 }]);
+        if (c === 1) await R('No. Ti stai svegliando. Sembra uguale, ma non lo è.');
+        else await R('Allora non smettere di guardarmi.');
+        await gainColor('indaco');
+      }
+    }
+  },
+  // ------------------------------------------------------------ TRAM
+  async tram() {
+    await fade(true, 500); setScene('tram'); setTime('07:31'); await fade(false, 600);
+    const open = ['Il tram 14. Stesso posto. Stesse facce. Ognuno dentro il suo schermo.', 'Il 14. Il sedile è ancora caldo del tuo corpo di ieri.', 'Tram. Le fermate scorrono come le pratiche: una, un\'altra, un\'altra.'];
+    await narr(open[Math.min(S.day - 1, 2)]);
+    if (DR() > 80) { A.sting(); await narr('Alzi gli occhi. Tutti i passeggeri hanno la tua faccia.'); await narr('Nessuno sembra sorpreso. Nemmeno tu.'); }
+    for (; ;) {
+      const id = await explore([
+        { id: 'win', x: 800, y: 300, w: 380, h: 240, l: 'Guarda fuori dal finestrino', show: !today('win') },
+        { id: 'pas', x: 1290, y: 430, w: 160, h: 200, l: 'Guarda i passeggeri', show: !today('pas') },
+        { id: 'tel', x: 260, y: 640, w: 220, h: 120, l: 'Guarda il telefono', rt: true },
+      ]);
+      if (id === 'tel') {
+        const news = (CFG.radio && CFG.radio.length ? CFG.radio : RADIO);
+        const n1 = T(pick(news)), n2 = T(pick(news));
+        await narr(L(`Scorri. «${n1}» Scorri.`, `Scroll. “${n1}” Scroll.`)); await narr(L(`«${n2}» Scorri. Scorri. Scorri.`, `“${n2}” Scroll. Scroll. Scroll.`));
+        addGray(2); await narr('La tua fermata. Non ricordi il viaggio. Non lo ricordi mai.'); break;
+      }
+      if (id === 'pas') {
+        markToday('pas');
+        if (DR() > 80) { await narr('Il ragazzo di fronte ha i tuoi occhi spenti. La signora accanto ha la tua bocca stanca.'); addGray(1); continue; }
+        await narr('Una ragazza piange in silenzio, il telefono stretto in mano. Nessuno la guarda.');
+        await narr('Nemmeno tu, di solito.');
+        const c = await choose([{ t: 'Le offri un fazzoletto.', v: 1 }, { t: 'Torni al tuo schermo.', v: 0, rt: true }]);
+        if (c) { await narr('Lei alza gli occhi, sorpresa. «...Grazie.» Un grazie vero. Di quelli che pesano.'); addGray(-4); }
+        continue;
+      }
+      if (id === 'win') {
+        markToday('win');
+        if (!F('lago')) {
+          await narr('Guardi fuori. Palazzi grigi. Un semaforo. Un cane fermo sul marciapiede che guarda il tram.');
+          scene.stopped = true; await wait(600); scene.lakeView = true; A.noiseHit(400, .8, .2);
+          await narr('Fermata Lungolago. Le porte si aprono, e per un istante entra un\'aria diversa. Odore d\'acqua.');
+          await narr('Undici anni su questo tram. Non sei mai sceso qui.');
+          F('lago', 1); addGray(-2); scene.lakeView = false; scene.stopped = false; A.noiseHit(400, .8, .2);
+        } else if (!has('blu')) {
+          scene.stopped = true; scene.lakeView = true; A.noiseHit(400, .8, .2);
+          await narr('Lungolago. Le porte si aprono. Il lago è lì, dietro gli alberi. Ti aspetta senza aspettarti.');
+          const c = await choose([{ t: 'Resta seduto.', v: 0, rt: true }, { t: 'Scendi.', v: 1, nw: true }]);
+          if (c) { await lakeScene(); S.late = true; return; }
+          await narr('Le porte si chiudono. Il lago resta dov\'è.'); scene.lakeView = false; scene.stopped = false;
+        } else { await narr('Lungolago. Sai che c\'è. Per oggi ti basta saperlo.'); addGray(-2); }
+      }
+    }
+  },
+  // ------------------------------------------------------------ ATRIO
+  async lobby() {
+    await fade(true, 500); setScene('lobby'); setTime(S.late ? '09:16' : '08:28'); await fade(false, 600);
+    if (S.late) {
+      await narr('Entri di corsa. Sei in ritardo di quarantasei minuti. Non ti era mai successo.');
+      scene.osvSmile = true; await O('{C}! In ritardo?'); await O('...Era ora.'); scene.osvSmile = false;
+    } else {
+      await O(S.day === 1 ? 'Buongiorno. Badge.' : 'Buongiorno. Badge.');
+      if (S.day >= 3 && !F('osv')) await narr('Ogni giorno la stessa frase. Undici anni di «buongiorno, badge».');
+      const c = await choose([{ t: 'Buongiorno.', v: 0, rt: true }, { t: 'Come sta, Osvaldo?', v: 1, show: !today('osvd') && (F('osv') || 0) < 3 }]);
+      if (c) { markToday('osvd'); await osvaldoTalk(); }
+    }
+    if (NET.online > 1 && Math.random() < .5) await O(L(`Oggi siete in ${NET.online}. Non so chi siano gli altri. Non li vedo mai entrare.`, `There are ${NET.online} of you today. I don't know who the others are. I never see them come in.`));
+    for (; ;) {
+      const id = await explore([
+        { id: 'bd', x: 555, y: 400, w: 220, h: 170, l: 'Bacheca: dipendenti del mese' },
+        { id: 'go', x: 800, y: 640, w: 240, h: 140, l: 'Badge e ascensore', rt: true },
+      ]);
+      if (id === 'go') { A.click(1500, .05); break; }
+      await badgeView(); addGray(1);
+    }
+  },
+  // ------------------------------------------------------------ SCRIVANIA MATTINA
+  async deskAM() {
+    await fade(true, 500); setScene('office', { clockH: 8, clockMin: 30 }); setTime('08:30'); await fade(false, 600);
+    const ann = CFG.broadcast || INTERCOM[Math.min(S.day - 1, INTERCOM.length - 1)];
+    A.tone(660, 'sine', .3, .05); A.tone(520, 'sine', .4, .05, .3);
+    await SPK(ann);
+    if (S.late) { await V('{C}. Ritardo. Quarantasei minuti. Segnato.'); await narr('Lo dice senza guardarti. Come si legge un numero.'); }
+    if (S.day >= 6) {
+      scene.msg = nColors() >= 3 ? 'PERCHÉ RESISTI?' : 'VA TUTTO BENE';
+      A.sting(); await narr('Sul monitor, tra due colonne di Excel, una riga che non hai scritto tu.'); await wait(400); scene.msg = null;
+    }
+    await deskLoop(4, 'mattina');
+    setTime('10:30');
+  },
+  // ------------------------------------------------------------ MACCHINETTA
+  async kitchen() {
+    await fade(true, 500);
+    const gone = S.day >= 5 && !has('giallo');
+    setScene('kitchen', { gianniGone: gone }); setTime('10:31'); await fade(false, 600);
+    await narr('Pausa. Sette minuti. Il distributore ronza come una preghiera.');
+    if (gone) {
+      A.sting();
+      await narr('Davanti al distributore c\'è... qualcosa. Ha la cravatta di Gianni. Ha la forma di Gianni.');
+      await narr('Non respira. Tiene in mano un bicchierino vuoto.');
+      if (!F('gianniLost')) { F('gianniLost', 1); await narr('Più tardi chiederai di lui. «Gianni?» ti risponderanno. «Quale Gianni?»'); }
+      addGray(3);
+    } else if (has('giallo')) {
+      scene.gSmile = true;
+      await G(pick(['Oh, {N}! Ieri sera ho fatto la carbonara. Quella vera. Mi tremavano le mani.', 'Ho chiamato un amico di Rimini. Un ristorante cerca un cuoco per l\'estate. Ci sto pensando. Ci sto pensando davvero.', 'Sai che ho ricominciato a cantare sotto la doccia? Mia moglie dice che sono stonato. Ma ride.']));
+      addGray(-2);
+    } else {
+      await G('Oh, {N}. Un altro giorno, eh?');
+      const c = await choose([{ t: 'Eh già.', v: 0, rt: true }, { t: 'Tiriamo avanti.', v: 0, rt: true }, { t: 'Gianni... tu sei felice?', v: 1, nw: true, show: nColors() >= 2 }]);
+      if (!c) {
+        await G('Ma che ci vuoi fare. Sabato c\'è la partita, almeno.');
+        if (S.day >= 2) await narr('Le stesse parole di ieri. La stessa pausa prima di «almeno».');
+        if (S.day >= 4) await narr('Ti chiedi se Gianni abbia mai visto una partita. Ti chiedi se esista, un sabato.');
+      } else {
+        await narr('Gianni smette di mescolare il caffè.');
+        await G('...Felice?'); await G('Che domanda è.');
+        await narr('Un silenzio lungo. Il distributore ronza.');
+        await G('Sai che facevo il cuoco? A Rimini, d\'estate. Mi alzavo alle cinque e cantavo. Cantavo, {N}.');
+        await G('Poi il mutuo. Il posto fisso. «Gianni, sistemati.» E mi sono sistemato.');
+        scene.gSmile = true;
+        await G('...No. Non sono felice. Ma grazie di avermelo chiesto. Nessuno me lo chiedeva da... boh. Da mai.');
+        await gainColor('giallo');
+      }
+    }
+    let drunk = false;
+    for (; ;) {
+      const id = await explore([
+        { id: 'caf', x: 585, y: 345, w: 200, h: 180, l: 'Prendi un caffè', rt: true, show: !drunk },
+        { id: 'acq', x: 790, y: 460, w: 160, h: 90, l: 'Un bicchiere d\'acqua', show: !drunk },
+        { id: 'fr', x: 1010, y: 360, w: 200, h: 240, l: 'Bacheca del frigo' },
+        { id: 'go', x: 380, y: 840, w: 300, h: 110, l: 'Torna alla scrivania', rt: true, show: drunk },
+      ]);
+      if (id === 'go') break;
+      if (id === 'caf') { drunk = true; A.noiseHit(900, 1.4, .1); await narr('Caffè. Sa di carta bruciata. Lo bevi lo stesso.'); addGray(1); }
+      if (id === 'acq') { drunk = true; S.water = true; await narr('Prendi un bicchiere d\'acqua invece del caffè. Una cosa minuscola.'); await narr('Eppure, per un attimo, hai la sensazione che il distributore ti stia guardando.'); addGray(-1); }
+      if (id === 'fr') {
+        if (!today('frr')) { markToday('frr'); addGray(-3); }
+        const r = await fridgeView();
+        if (r === 'write') {
+          const txt = await fridgeWrite();
+          if (txt) { markToday('postDay'); NETW.post(txt); NET.postits.push({ name: S.name, text: txt, at: Date.now() }); toast('BIGLIETTO ATTACCATO'); addGray(-4); await narr('Lo attacchi al frigo. Qualcuno, in un altro lunedì, lo leggerà.'); }
+        }
+      }
+    }
+  },
+  // ------------------------------------------------------------ RIUNIONE (giorni pari)
+  async meeting() {
+    if (S.day % 2) return;
+    await fade(true, 500); setScene('meeting'); setTime('11:30'); await fade(false, 600);
+    const k = (S.day / 2 - 1) % 5;
+    const SPEECH = [
+      ['Bene. Obiettivo della settimana: più pratiche della settimana scorsa.', 'La settimana scorsa l\'obiettivo era: più pratiche della settimana prima.', 'Vedete la coerenza? Domande? Nessuna. Ottimo.'],
+      ['I numeri sono stabili. Stabile è bello.', 'Stabile vuol dire che domani sarà come oggi. E dopodomani come domani.', 'Un applauso a noi.'],
+      ['Qualcuno è stato visto guardare fuori dalla finestra.', 'Ricordo a tutti che le finestre sono decorative.', 'Il fuori è un costo. Non ce lo possiamo permettere.'],
+      ['Siamo una famiglia.', 'Una famiglia non se ne va. Una famiglia resta. Seduta.', 'Seduta. Seduta. Seduta.'],
+      ['Riunione.', 'Riunione riunione.', 'Fine della riunione. Inizio della riunione.'],
+    ][k];
+    for (const l of SPEECH) await V(l);
+    if (k === 1) { for (let i = 0; i < 10; i++) setTimeout(() => A.noiseHit(1800, .05, .12, 'bandpass'), i * 140 + rnd(0, 40)); await narr('Applaudono tutti. Lo stesso ritmo. Come un solo paio di mani.'); }
+    const c = await choose([{ t: 'Annuisci.', v: 0, rt: true }, { t: 'Alza la mano.', v: 1, nw: true, show: nColors() >= 3 && !F('voce') }]);
+    if (!c) { await narr('Annuisci. Annuiscono tutti. Sei teste che dicono sì allo stesso niente.'); return; }
+    scene.turn = true; A.sting();
+    await narr('Alzi la mano. Sei teste si girano verso di te. Tutte insieme. Nello stesso istante.');
+    await V('...Sì, {C}?');
+    await choose([{ t: 'A cosa serve? Tutto questo. A cosa serve?', v: 0, nw: true }]);
+    scene.turn = false; scene.vGlitch = true; A.whisper();
+    await V('Serve. Serve a... Le pratiche servono a...');
+    await V('Le pratiche servono a generare altre pratiche. Così. Così. Così.');
+    scene.vGlitch = false;
+    await narr('Per un istante la stanza trattiene il fiato. Poi qualcuno tossisce, e la riunione riprende come se niente fosse.');
+    await narr('Ma l\'hai detto. Ad alta voce. È rimasto nell\'aria, come un odore che non va via.');
+    F('voce', 1); addGray(-12); toast('HAI USATO LA TUA VOCE');
+  },
+  // ------------------------------------------------------------ SCRIVANIA POMERIGGIO
+  async deskPM() {
+    await fade(true, 500); setScene('office', { clockH: 14 }); setTime('14:00'); await fade(false, 600);
+    await narr(pick(['Pomeriggio. La luce dei neon non cambia mai. Il pomeriggio è una mattina più stanca.', 'Pomeriggio. Il pranzo era una vaschetta. La vaschetta era uguale a ieri.', 'Le due. Il sonno ti pesa sulle palpebre come una pratica sulle altre.']));
+    await deskLoop(3, 'pomeriggio');
+    setTime('18:00'); A.tone(660, 'sine', .3, .05); A.tone(520, 'sine', .4, .05, .3);
+    await narr('Le diciotto. Spegni il monitor. Resta acceso un secondo più del dovuto, come se volesse dirti qualcosa.');
+  },
+  // ------------------------------------------------------------ SERA
+  async evening() {
+    await fade(true, 900); setScene('bedroom', { eve: true }); setTime('21:13'); await fade(false, 900);
+    await narr(pick(['Casa. Cena: lo stesso piatto riscaldato. La TV dice le stesse cose con facce diverse.', 'Casa. Le chiavi nella stessa ciotola. Il cappotto sulla stessa sedia.', 'Casa. Il silenzio ha il volume del frigorifero.']));
+    if (S.day === 1) await narr('Alle nove e un quarto il telefono vibra. Come ogni sera.');
+    scene.ring = true; A.ringOn();
+    const c = await choose([{ t: 'Lascia squillare.', v: 0, rt: true }, { t: 'Rispondi.', v: 1, nw: !F('chiara') }]);
+    A.ringOff();
+    if (!c) {
+      await wait(400); scene.ring = false;
+      await narr(L(`Smette. Sullo schermo: «Chiara — chiamate perse: ${19 + S.day * 2}».`, `It stops. On the screen: “Chiara — ${19 + S.day * 2} missed calls.”`));
+    } else { scene.ring = false; await chiaraTalk(); }
+    for (; ;) {
+      const id = await explore([
+        { id: 'tv', x: 1070, y: 420, w: 170, h: 120, l: 'Guarda la TV' },
+        { id: 'win', x: 800, y: 350, w: 280, h: 220, l: 'Guarda le finestre degli altri', show: !today('ewin') },
+        { id: 'arm', x: 170, y: 520, w: 160, h: 320, l: 'Armadio', show: F('guitar') && !has('viola') },
+        { id: 'go', x: 520, y: 700, w: 300, h: 160, l: 'Vai a dormire', rt: true },
+      ]);
+      if (id === 'go') break;
+      if (id === 'tv') { await narr(pick(['Un quiz. Un uomo vince una cucina. Il pubblico applaude a comando.', 'Un telegiornale. Le notizie di oggi sono quelle di ieri con un\'altra cravatta.', 'Pubblicità di un materasso: «Dormi meglio, rendi di più».'])); addGray(2); }
+      if (id === 'win') { markToday('ewin'); F('tapOpen', 1); bgCache.clear(); await narr('Le finestre degli altri. In ognuna, una luce azzurra. Uno schermo. Una persona sola.'); await narr('Quanti siete? Quanti lunedì ci sono, là fuori, uguali al tuo?'); addGray(-1); }
+      if (id === 'arm') await guitarScene();
+    }
+    await narr(DR() > 70 ? 'Chiudi gli occhi. Il buio ha il colore della moquette dell\'ufficio.' : 'Chiudi gli occhi. Domani è lunedì.');
+  },
+};
+
+async function deskLoop(n, label) {
+  if (label === 'mattina' && S.day === 1) await narr('Scrivania 4B-17. Ufficio Sinistri. Le pratiche arrivano, tu le controlli, le timbri. Arrivano altre pratiche.');
+  for (; ;) {
+    const id = await explore([
+      { id: 'work', x: 980, y: 650, w: 220, h: 140, l: 'Lavora alle pratiche', rt: true },
+      { id: 'mar', x: 1400, y: 420, w: 180, h: 200, l: 'Marta', show: !today('mar' + label) },
+      { id: 'pl', x: 1224, y: 470, w: 110, h: 110, l: 'Pianta di Marta' },
+      { id: 'win', x: 750, y: 315, w: 300, h: 120, l: 'Guarda la finestra', show: !today('ow' + label) },
+      { id: 'door', x: 978, y: 395, w: 90, h: 170, l: 'Porta in fondo al corridoio' },
+      { id: 'clk', x: 250, y: 250, w: 110, h: 120, l: 'Orologio', show: S.day >= 2 },
+    ]);
+    if (id === 'work') {
+      const errs = await praticaSession(n, label);
+      if (errs >= 2) { await V(L(`{C}. ${errs} errori. La procedura 7.3 non è un'opinione.`, `{C}. ${errs} errors. Procedure 7.3 is not a matter of opinion.`)); addGray(4); }
+      else if (errs === 0 && S.day > 1 && Math.random() < .4) { await narr('Zero errori. Nessuno se ne accorge. Nessuno se ne accorge mai.'); }
+      return;
+    }
+    if (id === 'mar') { markToday('mar' + label); await martaTalk(); }
+    if (id === 'pl') await plantTalk();
+    if (id === 'win') {
+      markToday('ow' + label);
+      if (DR() > 70) { A.sting(); await narr('Ti avvicini alla finestra. Non è una finestra. È una fotografia di una finestra, incollata al muro.'); await narr('Gli angoli si stanno staccando.'); addGray(2); }
+      else { await narr('Fuori: un parcheggio, un cielo bianco, un piccione immobile sul cornicione.'); await narr('Ma è fuori. Esiste ancora.'); addGray(-2); }
+    }
+    if (id === 'clk') await narr(DR() > 55 ? 'Le nove. Sono le nove da quando sei arrivato. Le lancette tremano, ma non si muovono.' : 'Le lancette si muovono lentissime. Ogni minuto pesa un chilo.');
+    if (id === 'door') {
+      if (!F('key')) { await narr('In fondo al corridoio, una porta rossa. USCITA DI SICUREZZA.'); await narr('Undici anni qui e non l\'hai mai vista aperta. La maniglia non gira.'); }
+      else if (nColors() < CFG.needColors) {
+        A.click(300, .1); await narr('Infili la chiave. Gira a metà. Poi si blocca.');
+        await narr(L(`La mano trema. Non sei ancora abbastanza tu. (Frammenti di colore: ${nColors()}/${CFG.needColors})`, `Your hand is shaking. You're not enough yourself yet. (Color fragments: ${nColors()}/${CFG.needColors})`));
+      } else {
+        await narr('Infili la chiave. Gira fino in fondo. Clac.');
+        const c = await choose([{ t: 'Apri la porta.', v: 1, nw: true }, { t: 'Non ancora.', v: 0, rt: true }]);
+        if (c) throw new Escape();
+      }
+    }
+  }
+}
+async function martaTalk() {
+  const m = F('marta') || 0;
+  if (!m) {
+    await narr(DR() > 60 ? 'Marta digita. Digita. Le dita si muovono anche quando lo schermo si spegne.' : 'Marta non alza gli occhi dallo schermo.');
+    await M('Ciao.');
+    if (S.day >= 2) await narr('Sulla sua scrivania, una piantina sta morendo. Nessuno la annaffia da settimane.');
+    return;
+  }
+  if (m === 1) {
+    scene.martaSmile = true;
+    await M('Sai che dipingevo? Acquerelli. Avevo fatto una mostra, una volta, in una libreria. Sei persone. Mia madre ha pianto.');
+    await M('Poi ho smesso. Non so nemmeno quando. Un giorno ho guardato i colori e mi sembravano tutti uguali.');
+    F('marta', 2); addGray(-3); scene.martaSmile = false; return;
+  }
+  if (m === 2) {
+    if (nColors() >= 4) {
+      await M('{N}... tu stai cercando un\'uscita, vero?');
+      await M('Lo vedo. Da come guardi la porta in fondo al corridoio.');
+      await M('Se la trovi... non andartene da solo. Ti prego.');
+      const c = await choose([{ t: 'Non me ne vado senza di te.', v: 1, nw: true }, { t: 'Non so di cosa parli.', v: 0 }]);
+      if (c) { scene.martaSmile = true; await M('...Ok.'); F('promise', 1); addGray(-4); scene.martaSmile = false; }
+      else await M('Va bene. Fa\' finta. Ma io ci sono.');
+      F('marta', 3); return;
+    }
+    await M('Ieri ho comprato un pennello. Non l\'ho ancora aperto. Ma l\'ho comprato.'); addGray(-2); return;
+  }
+  await M(F('promise') ? 'Quando sei pronto, io ci sono. Ho il pennello in borsa.' : 'Ciao, {N}.');
+}
+async function plantTalk() {
+  const w = F('water') || 0;
+  if (w >= 2) { await narr('La pianta è verde. Assurdamente verde, qui dentro. Come un errore di stampa.'); return; }
+  if (!S.water) { await narr('Una piccola pianta grassa, quasi grigia. La terra è secca come cenere.'); await narr('Servirebbe un po\' d\'acqua. Al distributore, forse.'); return; }
+  S.water = false; F('water', w + 1);
+  if (w === 0) { A.noiseHit(1600, .8, .07); await narr('Versi il bicchiere d\'acqua nel vaso. La terra secca la beve tutta, avida, in un secondo.'); await narr('Marta non se ne accorge. Non ancora.'); addGray(-2); return; }
+  A.noiseHit(1600, .8, .07);
+  await narr('Annaffi di nuovo. Stavolta qualcosa cambia. Una foglia si solleva. Poi un\'altra.');
+  scene.martaSmile = true; F('marta', 1);
+  await narr('Marta guarda la pianta. Poi guarda te. È la prima volta che ti guarda.');
+  await M('L\'hai annaffiata tu?'); await M('Era di mia madre. Pensavo fosse morta. Pensavo fosse morta da mesi.');
+  await narr('Sorride. Non sapevi che sapesse farlo.');
+  await gainColor('verde'); scene.martaSmile = false;
+}
+async function osvaldoTalk() {
+  const o = F('osv') || 0;
+  if (o === 0) {
+    await narr('Osvaldo ti guarda come se avessi parlato in un\'altra lingua.');
+    await O('Come sto?'); await O('Sono trentun anni che sto dietro questo bancone. Lei è il primo che me lo chiede.');
+    scene.osvSmile = true; await O('Sto. Grazie, {N}.'); scene.osvSmile = false; F('osv', 1); addGray(-3);
+  } else if (o === 1) {
+    await O('Mia moglie, la Rina, voleva vedere la Grecia. Il mare blu, quello delle cartoline.');
+    await O('Ogni estate le dicevo: l\'anno prossimo, Rina. L\'anno prossimo.');
+    await narr('Guarda la porta girevole, lontano.'); await O('Poi l\'anno prossimo è finito.');
+    F('osv', 2); addGray(-3);
+  } else if (o === 2) {
+    if (nColors() >= 3) {
+      await O('Lei ultimamente ha qualcosa negli occhi. Non so come dirlo.'); await O('Colore.');
+      await narr('Ti mette in mano una chiave piccola, rossa di ruggine.');
+      await O('La porta rossa. In fondo al corridoio, al quarto. Uscita di sicurezza.');
+      await O('Nessuno la usa. Nessuno ricorda nemmeno che c\'è.');
+      await O('Io sono troppo vecchio per uscire. Lei no.');
+      F('key', 1); F('osv', 3); toast('OGGETTO: CHIAVE DELLA PORTA ROSSA', 3500); A.chime(3); addGray(-3);
+    } else { await O('Lei mi guarda come uno che cerca qualcosa.'); await O('Quando l\'avrà trovato, torni a chiedermi come sto.'); addGray(-1); }
+  }
+}
+async function chiaraTalk() {
+  const c = F('chiara') || 0;
+  if (DR() > 85 && !c) {
+    await narr('Rispondi. Dall\'altra parte non c\'è Chiara. C\'è un ronzio. Il ronzio dei neon.');
+    A.sting(); await V('Domani alle otto e trenta, {C}. Domani alle otto e trenta. Domani.');
+    addGray(3); return;
+  }
+  if (c === 0) {
+    await C('Pronto? {N}? ...Hai risposto. Oddio. Pensavo avessi cambiato numero.');
+    await C('Niente, niente. Volevo solo sentirti. La mamma chiede di te. Io chiedo di te.');
+    await C('Come stai? Davvero, però.');
+    const r = await choose([{ t: 'Bene. Tutto bene.', v: 0, rt: true }, { t: 'Non lo so. Male, credo.', v: 1, nw: true }]);
+    if (!r) { await C('Dici sempre così.'); await narr('Una pausa. La senti respirare.'); await C('Ti richiamo domani. Rispondi, eh.'); }
+    else { await C('...Grazie. Per avermelo detto, intendo.'); await C('Non devi aggiustare niente stasera. Basta che rispondi, quando chiamo. Va bene?'); addGray(-5); }
+    F('chiara', 1); addGray(-2); return;
+  }
+  if (c === 1) {
+    await C('Ehi. Due volte in una settimana. È un record.');
+    await C('Sai cosa ho trovato? Una foto. Tu, sedici anni, con quella chitarra rossa. Suonavi sempre la stessa canzone, mi facevi impazzire.');
+    await C('Ce l\'hai ancora? Scommetto che è in fondo all\'armadio.');
+    F('guitar', 1); F('chiara', 2); addGray(-3); return;
+  }
+  if (c === 2) {
+    await C('Domenica vieni a pranzo da me? E non dire «vediamo». Dì sì.');
+    const r = await choose([{ t: 'Sì.', v: 1, nw: true }, { t: 'Vediamo.', v: 0, rt: true }]);
+    if (r) { await C('Sì? ...Ok. Ok! Ti aspetto. Davvero, eh.'); F('sunday', 1); addGray(-4); }
+    else await C('Vediamo. Va bene. Ti aspetto lo stesso.');
+    F('chiara', 3); return;
+  }
+  await C(pick(['Sono io. Niente, volevo darti la buonanotte.', 'Ehi. Oggi ho pensato a te. Tutto qui.', 'Ci sei? Bene. Mi basta.'])); addGray(-2);
+}
+async function guitarScene() {
+  await narr('Dietro i cappotti, in una custodia piena di polvere: la chitarra rossa.');
+  await guitar();
+  await narr('Non ricordavi più di saperlo fare. Le mani sì.');
+  await gainColor('viola'); bgCache.clear();
+}
+async function lakeScene() {
+  await fade(true, 900); setScene('lake'); setTime('08:04'); hud(false); await fade(false, 1600);
+  await narr('Scendi. Le porte si chiudono alle tue spalle e il tram se ne va, senza di te.');
+  await narr('Il lago è grande. Più grande di come lo immaginavi. Il sole basso lo accende tutto.');
+  await narr('Ti siedi su una panchina. Non c\'è nessuna pratica da timbrare. L\'acqua non chiede niente.');
+  await narr('Resti lì. Dieci minuti. Venti. Un uccello si posa vicino a te e non ha paura.');
+  hud(true); await gainColor('blu');
+  await narr('Arriverai in ritardo. Per la prima volta in undici anni, non ti importa.');
+}
+
+// ---------------------------------------------------------------- FINALE: LA PORTA ROSSA
+async function finale() {
+  hideDlg(); clearHot();
+  let withMarta = false;
+  if ((F('marta') || 0) >= 3) {
+    await narr('Prima di aprire, ti volti verso la scrivania di Marta.');
+    const c = await choose([{ t: 'Marta. Vieni.', v: 1, nw: true }, { t: 'Vai da solo.', v: 0 }]);
+    if (c) { scene.martaSmile = true; await M('...Adesso?'); await M('Ok. Ok. Prendo solo il pennello.'); withMarta = true; }
+    else if (F('promise')) { await narr('Marta ti guarda andare. Non dice niente. Non serve.'); addGray(4); }
+  }
+  A.door(); await fade(true, 700);
+  setScene('stairs', { marta: withMarta }); setTime('??:??'); await fade(false, 800);
+  await narr('La porta si chiude alle tue spalle. Scale di cemento. Una luce verde. Un cartello: PIANO 4.');
+  await narr('Da sopra, attutito, il ronzio dell\'ufficio. Ti chiama.');
+  const total = 3 + Math.floor(S.gray / 25);
+  let lvl = 0;
+  const TEMPT = [
+    () => V('{C}. Dove crede di andare? Ha una pratica aperta.'),
+    () => has('giallo') ? G('Vai, {N}! Vai e non voltarti!') : G('Dai, torna su. Che ci vuoi fare. Tiriamo avanti.'),
+    () => SPK('Si ricorda al personale che fuori non c\'è niente.'),
+    () => say('LA TUA VOCE', 'Torna indietro. Lì almeno sai cosa succede. Lì non fa male niente.', { col: '#9fa6d8' }),
+    () => say('IL PROCESSO', 'Ti abbiamo dato tutto. Un posto. Un orario. Un lunedì per sempre.', { col: '#777' }),
+    () => withMarta ? M('Non ascoltarli. Ti tengo la mano. Scegli.') : say('LA TUA VOCE', 'Sei stanco. Siediti. Solo un attimo.', { col: '#9fa6d8' }),
+  ];
+  while (lvl < total) {
+    const owned = COLORS.filter(c => has(c.k));
+    const correct = Math.random() < .5 ? 0 : 1;
+    const seen = Math.random() < .35 + nColors() * .08 + (withMarta ? .15 : 0);
+    scene.land = { marks: [null, null] }; if (seen) scene.land.marks[correct] = pick(owned).c;
+    await TEMPT[(lvl + total) % TEMPT.length]();
+    const ch = await choose([{ t: 'La porta a sinistra.', v: 0 }, { t: 'La porta a destra.', v: 1 }, { t: 'Torna su. Torna alla scrivania.', v: 2, rt: true }],
+      seen ? 'Su una delle due porte c\'è un segno. Il tuo colore.' : 'Due porte uguali. Nessun segno. Solo grigio.');
+    if (ch === 2) {
+      await narr('Risali. Il corridoio. La scrivania. La sedia è ancora calda.'); addGray(6);
+      await fade(true, 600); setScene('office', { clockH: 9 }); await fade(false, 600);
+      return 'back';
+    }
+    A.door(); await fade(true, 350);
+    if (ch === correct) { lvl++; scene.floor = lvl; }
+    else { addGray(withMarta ? 4 : 8); lvl = Math.max(0, lvl - 1); }
+    await fade(false, 350);
+    if (S.gray >= 100) return 'abs';
+    if (ch === correct) await narr(lvl < total ? `Scendi. Il cartello dice ancora PIANO 4, ma le scale sono diverse. Più chiare.` : 'Scendi. L\'ultima rampa. In fondo, una porta a vetri. Luce.');
+    else { A.sting(); await narr('PIANO 4. Di nuovo. Il cartello sembra più grande. Più vicino.'); }
+  }
+  await fade(true, 800); setScene('lobby', { osvSmile: true }); setTime('07:12'); await fade(false, 900);
+  await narr('Piano terra. L\'atrio è vuoto. È presto: il palazzo non si è ancora svegliato.');
+  await O('Ce l\'ha fatta.');
+  const c = await choose([{ t: 'Grazie, Osvaldo.', v: 0 }, { t: 'Venga anche lei.', v: 1, nw: true }]);
+  if (c) { await O('Io? Ah. Magari l\'anno prossimo...'); await narr('Si ferma. Ci pensa.'); await O('...No. Ha ragione. Quest\'anno. Quest\'anno vado al mare.'); }
+  else await O('Vada, {N}. Io resto un altro po\'. Qualcuno deve dire buongiorno.');
+  A.door();
+  return withMarta ? 'together' : 'free';
+}
+
+// ---------------------------------------------------------------- FINALI
+async function endCard(title, sub, body, btn = 'TORNA AL TITOLO') {
+  hud(false); hideDlg(); clearHot();
+  $('cD').textContent = T(title); $('cW').textContent = sub;
+  $('cQ').innerHTML = body + `<div style="margin-top:28px"><button class="btn" id="endB">${T(btn)}</button></div>`;
+  $('card').classList.remove('hide'); await fade(false, 800);
+  await new Promise(r => { $('endB').onclick = r; });
+  await fade(true, 600); $('card').classList.add('hide');
+}
+async function endingFree(together) {
+  await fade(true, 1200); hud(false);
+  setScene('outside', { together, t0: tNow }); A.mood(); await fade(false, 2200);
+  await narr('Fuori è mattina. Non sai che ore sono. Per la prima volta da anni, non ti importa.');
+  await narr('L\'aria è fredda. Ha un odore. Le cose hanno di nuovo un odore.');
+  if (together) { await M('Guarda il cielo. Ha... dei colori. Dei colori veri.'); await M('Mi servirà un pennello più grande.'); }
+  if (F('sunday')) { await narr('Prendi il telefono. Chiara risponde al primo squillo.'); await C('{N}? È successo qualcosa? Stai bene?'); await choose([{ t: 'Sto meglio. Domenica vengo. Davvero.', v: 0, nw: true }]); await C('...Ti aspetto. Porta la chitarra.'); }
+  else if (F('chiara')) { await narr('Prendi il telefono. Componi il numero di Chiara.'); await narr('Questa volta sei tu a chiamare.'); }
+  else await narr('Non sai ancora dove andare. Va bene così. Per oggi, basta essere uscito.');
+  await wait(1500);
+  NETW.inc(together ? 'together' : 'freed');
+  const st = NET.stats || {};
+  await endCard(together ? 'FUORI, INSIEME' : 'FUORI', L(`GIORNO ${S.day} · ${nColors()}/7 COLORI`, `DAY ${S.day} · ${nColors()}/7 COLORS`),
+    L(`Il grigio non se ne va in un giorno. Ma una porta, a volte, basta aprirla.<br><br>`, `The gray doesn't go away in a day. But sometimes, a door just needs to be opened.<br><br>`) +
+    `<span style="font-size:14px;color:#777">${L('Se ti riconosci in questa storia, parlane con qualcuno: un amico, un familiare, il tuo medico, uno psicologo.<br>Non sei una pratica da respingere.', 'If you recognize yourself in this story, talk to someone: a friend, a family member, your doctor, a therapist.<br>You are not a claim to be rejected.')}</span>` +
+    `<br><br><span style="font:11px var(--mono);letter-spacing:.14em;color:#666">${L('IMPIEGATI USCITI', 'EMPLOYEES WHO GOT OUT')}: ${(st.freed || 0) + (st.together || 0)} · ${L('ASSORBITI', 'ABSORBED')}: ${st.absorbed || 0}</span>`);
+}
+async function endingAbsorbed() {
+  hideDlg(); clearHot(); await fade(true, 1500);
+  setScene('absorbed'); hud(false); await fade(false, 2500);
+  await narr('Non ricordi quando hai smesso di alzarti dalla sedia. Forse non hai mai smesso. Forse sei sempre stato seduto qui.');
+  await narr('Le mani sono fredde. La pelle ha il colore della moquette. Non fa male. Non fa niente.');
+  A.sting(); await say('IL PROCESSO', 'Benvenuto, {C}. Ora fai parte del Processo.', { col: '#888' });
+  await narr('Il lunedì dopo, un ragazzo nuovo si ferma accanto alla tua scrivania. «Scusi... è libera la 4B-17?»');
+  await narr('Nessuno risponde. Nessuno risponde mai.');
+  NETW.badge(); NETW.inc('absorbed');
+  const st = NET.stats || {};
+  await endCard('ASSORBITO', L(`GIORNO ${S.day} · ${nColors()}/7 COLORI`, `DAY ${S.day} · ${nColors()}/7 COLORS`),
+    L(`Il tuo badge ora è appeso nell'atrio, tra i dipendenti del mese.<br><br>`, `Your badge now hangs in the lobby, among the employees of the month.<br><br>`) +
+    `<span style="font-size:14px;color:#777">${L('Il grigio è bravo a sembrare normale. Se ti sembra familiare, non aspettare che diventi tutto: parlane con qualcuno.', "Gray is good at passing for normal. If this feels familiar, don't wait for it to become everything: talk to someone.")}</span>` +
+    `<br><br><span style="font:11px var(--mono);letter-spacing:.14em;color:#666">${L('ASSORBITI', 'ABSORBED')}: ${(st.absorbed || 0)} · ${L('USCITI', 'GOT OUT')}: ${(st.freed || 0) + (st.together || 0)}</span>`, 'RIPROVA');
+}
+async function cycleReset() {
+  NETW.inc('cycles');
+  const keep = Object.entries(S.colors).sort((a, b) => a[1] - b[1]).slice(0, 2);
+  S.colors = Object.fromEntries(keep.map(([k]) => [k, 1]));
+  const f = S.f; S.f = { lago: f.lago, guitar: f.guitar, key: f.key, mir: Math.min(f.mir || 0, 2), osv: Math.min(f.osv || 0, 2), chiara: Math.min(f.chiara || 0, 2), water: Math.min(f.water || 0, 1), marta: f.marta ? 1 : 0 };
+  S.cycle++; S.day = 1; S.phase = 0; S.gray = 35;
+  await card(L('IL CICLO', 'THE CYCLE'), '', T('La sveglia suona. 06:47. Hai la sensazione di aver già vissuto tutto questo. Ogni gesto. Ogni parola. Qualcosa, però, ti è rimasto addosso.'), 4200);
+}
+async function endOfDay() {
+  await fade(true, 1000); hideDlg(); clearHot();
+  F('tapOpen', 0); S.water = false; S.late = false; bgCache.clear();
+  addGray(CFG.grayPerDay); NETW.inc('days');
+  S.day++; S.phase = 0;
+  if (S.gray >= 100) { await endingAbsorbed(); return 'end'; }
+  if (S.day > CFG.maxDays) await cycleReset();
+  save();
+}
+async function runGame() {
+  updateHUD(); applyFilter();
+  for (; ;) {
+    if (S.phase === 0) await dayCard();
+    let res = null;
+    try {
+      for (; S.phase < PHASES.length; S.phase++) {
+        save();
+        await PH[PHASES[S.phase]]();
+        if (S.gray >= 100) { await endingAbsorbed(); return; }
+      }
+    } catch (e) {
+      if (!(e instanceof Escape)) throw e;
+      res = await finale();
+      if (res === 'abs') { await endingAbsorbed(); return; }
+      if (res === 'free' || res === 'together') { await endingFree(res === 'together'); return; }
+      continue; // back to the desk phase
+    }
+    if (await endOfDay() === 'end') return;
+  }
+}
+
+// ======================================================================
+//  FIREBASE — progetto goelectric, nodo "grigio"
+// ======================================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC346gJHt-Dg7_bjzYw7k1D6j0tcalxht4",
+  authDomain: "goelectric-e9299.firebaseapp.com",
+  databaseURL: "https://goelectric-e9299-default-rtdb.firebaseio.com",
+  projectId: "goelectric-e9299",
+  storageBucket: "goelectric-e9299.firebasestorage.app",
+  messagingSenderId: "81618360543",
+  appId: "1:81618360543:web:67a9a4d38ec18400c1316a",
+  measurementId: "G-6FZQSDWEZJ"
+};
+const ROOT = 'grigio';
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { } }
+function makeId(prefix, len, chars) { let s = prefix; const a = new Uint8Array(len); crypto.getRandomValues(a); for (const b of a) s += chars[b % chars.length]; return s; }
+const PID = lsGet('grigio_pid') || makeId('g_', 14, 'abcdefghijklmnopqrstuvwxyz0123456789'); lsSet('grigio_pid', PID);
+const HID = lsGet('grigio_hid') || makeId('h_', 16, '0123456789abcdef'); lsSet('grigio_hid', HID);
+
+const NETW = {
+  ok: false, db: null, m: null, _saveT: 0,
+  async init() {
+    try {
+      const V = '10.12.2';
+      const [appM, dbM] = await Promise.all([
+        import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+        import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`)]);
+      const app = appM.initializeApp(FIREBASE_CONFIG, 'grigio');
+      const db = this.db = dbM.getDatabase(app); this.m = dbM; this.ok = true;
+      const { ref, onValue, query, orderByChild, limitToLast } = dbM;
+      onValue(ref(db, ROOT + '/config'), s => { applyCfg(s.val() || {}); }, e => console.warn('config', e.message));
+      onValue(ref(db, ROOT + '/stats'), s => { NET.stats = s.val() || {}; renderTitleStats(); }, () => { });
+      onValue(query(ref(db, ROOT + '/postit'), orderByChild('at'), limitToLast(40)), s => {
+        const a = []; s.forEach(c => { const v = c.val(); if (v && typeof v.text === 'string' && typeof v.name === 'string') a.push({ name: v.name.slice(0, 12), text: v.text.slice(0, 40), at: v.at | 0 }); });
+        NET.postits = a;
+      }, () => { });
+      onValue(query(ref(db, ROOT + '/badges'), orderByChild('at'), limitToLast(30)), s => {
+        const a = []; s.forEach(c => { const v = c.val(); if (v && typeof v.name === 'string') a.push({ name: v.name.slice(0, 12), day: v.day | 0, at: v.at | 0 }); });
+        NET.badges = a; bgCache.clear();
+      }, () => { });
+      onValue(query(ref(db, ROOT + '/presence'), orderByChild('at'), limitToLast(60)), s => {
+        const now = Date.now() + (this.skew || 0); let n = 0;
+        s.forEach(c => { const v = c.val(); if (v && v.at > now - 150000) n++; });
+        const prev = NET.online; NET.online = Math.max(1, n); if (prev !== NET.online) bgCache.clear();
+      }, () => { });
+      onValue(ref(db, '.info/serverTimeOffset'), s => { this.skew = s.val() || 0; });
+      this.presence();
+      setInterval(() => this.presence(), 60000);
+    } catch (e) { console.warn('Firebase non disponibile — si gioca offline.', e && e.message); }
+  },
+  presence() {
+    if (!this.ok || !gameOn) return;
+    const { ref, set, serverTimestamp, onDisconnect } = this.m;
+    const r = ref(this.db, `${ROOT}/presence/${HID}`);
+    set(r, { at: serverTimestamp(), day: Math.min(99, S.day | 0) }).catch(() => { });
+    if (!this._od) { onDisconnect(r).remove().catch(() => { }); this._od = 1; }
+  },
+  inc(k) {
+    if (!this.ok) return;
+    const { ref, runTransaction } = this.m;
+    runTransaction(ref(this.db, `${ROOT}/stats/${k}`), v => (typeof v === 'number' ? v : 0) + 1).catch(() => { });
+  },
+  post(text) {
+    if (!this.ok) return;
+    const { ref, set, serverTimestamp } = this.m;
+    set(ref(this.db, `${ROOT}/postit/${HID}`), { name: cleanName(S.name), text, at: serverTimestamp(), c: (Math.random() * 5) | 0 }).catch(e => console.warn('postit', e.message));
+    this.inc('postits');
+  },
+  badge() {
+    if (!this.ok) return;
+    const { ref, set, serverTimestamp } = this.m;
+    set(ref(this.db, `${ROOT}/badges/${PID}`), { name: cleanName(S.name), day: clamp(S.day | 0, 1, 999), at: serverTimestamp() }).catch(e => console.warn('badge', e.message));
+  },
+  save() {
+    if (!this.ok) return;
+    const now = Date.now(); if (now - this._saveT < 15000) return; this._saveT = now;
+    const { ref, set, serverTimestamp } = this.m;
+    set(ref(this.db, `${ROOT}/players/${PID}`), { v: JSON.stringify(S).slice(0, 8000), lastSeen: serverTimestamp() }).catch(() => { });
+  },
+};
+function cleanName(s) { const v = cleanTxt(s || '', /[^A-Z' ]/g, 12).trim(); return v.length >= 2 ? v : L('ANONIMO', 'ANONYMOUS'); }
+function applyCfg(v) {
+  const n = (x, a, b, d) => (typeof x === 'number' && isFinite(x)) ? clamp(Math.round(x), a, b) : d;
+  const str = (x, m) => typeof x === 'string' ? x.slice(0, m) : '';
+  const prevB = CFG.broadcast, prevE = CFG.event;
+  CFG.on = v.on !== false;
+  CFG.maxDays = n(v.maxDays, 3, 30, 10);
+  CFG.grayPerDay = n(v.grayPerDay, 0, 30, 10);
+  CFG.needColors = n(v.needColors, 1, 7, 5);
+  CFG.broadcast = str(v.broadcast, 180);
+  CFG.event = ['blackout', 'pioggia'].includes(v.event) ? v.event : '';
+  CFG.motd = str(v.motd, 180);
+  CFG.radio = Array.isArray(v.radio) ? v.radio.filter(x => typeof x === 'string').map(x => x.slice(0, 140)).slice(0, 30) : (v.radio && typeof v.radio === 'object' ? Object.values(v.radio).filter(x => typeof x === 'string').slice(0, 30) : null);
+  if (gameOn && CFG.broadcast && CFG.broadcast !== prevB) toast(L('COMUNICAZIONE: ', 'ANNOUNCEMENT: ') + CFG.broadcast, 6000);
+  if (CFG.event !== prevE) { bgCache.clear(); if (scene) A.amb(scene.amb); }
+  renderTitleStats();
+}
+
+// ---------------------------------------------------------------- SAVE
+function save() { if (!gameOn) return; lsSet('grigio_save', JSON.stringify(S)); NETW.save(); }
+function loadSave() {
+  try { const s = JSON.parse(lsGet('grigio_save')); if (s && s.v === 3 && s.day) return Object.assign(freshState(), s); } catch (e) { }
+  return null;
+}
+
+// ---------------------------------------------------------------- TITLE / MENU / BOOT
+let gameOn = false;
+function renderTitleStats() {
+  const st = NET.stats || {};
+  const parts = [];
+  if (st.plays) parts.push(`${L('TURNI INIZIATI', 'SHIFTS STARTED')}: ${st.plays}`);
+  if (st.absorbed || st.freed || st.together) parts.push(`${L('ASSORBITI', 'ABSORBED')}: ${st.absorbed || 0} · ${L('USCITI', 'GOT OUT')}: ${(st.freed || 0) + (st.together || 0)}`);
+  let h = parts.join('<br>');
+  if (CFG.motd) h = `<i style="color:#8d8b86">${esc(CFG.motd)}</i><br>` + h;
+  if (!CFG.on) h = `<b style="color:#c55">${L('UFFICIO CHIUSO PER MANUTENZIONE', 'OFFICE CLOSED FOR MAINTENANCE')}</b><br>` + h;
+  $('tStats').innerHTML = h || '&nbsp;';
+  $('tNew').disabled = $('tCont').disabled = !CFG.on;
+  $('tNew').style.opacity = $('tCont').style.opacity = CFG.on ? 1 : .35;
+}
+function showTitle() {
+  gameOn = false; hud(false); hideDlg(); clearHot();
+  ['prat', 'modal', 'gtr', 'menu', 'card'].forEach(i => $(i).classList.add('hide'));
+  setScene('office', { clockH: 9 }); S = freshState(); S.gray = 40; applyFilter();
+  $('title').classList.remove('hide'); $('nameBox').style.display = 'none'; $('tBtns').style.display = '';
+  $('tCont').style.display = loadSave() ? '' : 'none';
+  renderTitleStats(); fade(false, 1200);
+}
+async function startGame(state) {
+  A.init();
+  S = state; gameOn = true;
+  await fade(true, 800);
+  $('title').classList.add('hide');
+  NETW.presence();
+  try { await runGame(); lsDel('grigio_save'); }
+  catch (e) { console.error(e); save(); }
+  showTitle();
+}
+$('tNew').onclick = () => { A.init(); A.ui(); $('tBtns').style.display = 'none'; $('nameBox').style.display = 'flex'; $('nameIn').focus(); $('nameIn').select(); };
+$('nameIn').oninput = e => { e.target.value = cleanTxt(e.target.value, /[^A-Z' ]/g, 12); };
+$('nameIn').onkeydown = e => { if (e.key === 'Enter') $('nameGo').click(); };
+$('nameGo').onclick = () => {
+  const nm = cleanTxt($('nameIn').value, /[^A-Z' ]/g, 12).trim();
+  if (nm.length < 2) { $('nameIn').focus(); return; }
+  const st = freshState(); st.name = nm; NETW.inc('plays'); lsDel('grigio_save'); startGame(st);
+};
+$('tCont').onclick = () => { const s = loadSave(); if (s) startGame(s); };
+$('menuBtn').onclick = e => {
+  e.stopPropagation();
+  $('menuInfo').innerHTML = `${esc(S.name)} FERRI · ${L('SCRIVANIA', 'DESK')} 4B-17<br>${L('COLORI', 'COLORS')}: ${nColors()}/7 · ${L('GIORNO', 'DAY')} ${S.day}/${CFG.maxDays}<br>${NETW.ok ? L('IN TURNO ORA: ', 'ON SHIFT NOW: ') + NET.online : 'OFFLINE'}` +
+    (F('key') ? L('<br>HAI: CHIAVE DELLA PORTA ROSSA', '<br>YOU HAVE: KEY TO THE RED DOOR') : '') +
+    `<br><br>${COLORS.filter(c => has(c.k)).map(c => `<span style="color:${c.c}">■</span> ${ct(c)}`).join('<br>')}`;
+  $('mAudio').textContent = 'AUDIO: ' + (A.on ? 'ON' : 'OFF'); $('menu').classList.remove('hide');
+};
+$('menu').addEventListener('pointerdown', e => e.stopPropagation());
+$('mAudio').onclick = () => { A.init(); $('mAudio').textContent = 'AUDIO: ' + (A.toggle() ? 'ON' : 'OFF'); };
+$('mResume').onclick = () => $('menu').classList.add('hide');
+$('mLang').onclick = () => { A.ui(); setLang(LANG === 'it' ? 'en' : 'it'); $('menuBtn').onclick({ stopPropagation() { } }); };
+document.querySelectorAll('#langSel button').forEach(b => b.onclick = e => { e.stopPropagation(); A.ui(); setLang(b.dataset.l); });
+$('mQuit').onclick = () => { save(); location.reload(); };
+['prat', 'modal', 'gtr'].forEach(id => $(id).addEventListener('pointerdown', e => e.stopPropagation()));
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+// ── Schermo intero + orizzontale al primo tocco/click ovunque ──
+(() => {
+  const de = document.documentElement;
+  const isFs = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const lock = () => { try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) {} };
+  const goFs = () => {
+    if (isFs()) { lock(); return; }
+    const req = de.requestFullscreen || de.webkitRequestFullscreen;
+    if (!req) return;
+    try {
+      const r = req.call(de, { navigationUI: 'hide' });
+      if (r && r.then) r.then(lock).catch(() => {}); else lock();
+    } catch (e) {}
+  };
+  // capture: scatta prima di qualunque stopPropagation dei pannelli
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, goFs, { capture: true, passive: true }));
+  document.addEventListener('fullscreenchange', () => { if (isFs()) lock(); layout(); });
+  document.addEventListener('webkitfullscreenchange', () => layout());
+  screen.orientation?.addEventListener?.('change', () => layout());
+})();
+
+// ── Installazione (PWA) ──
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('tInstall').style.display = ''; });
+addEventListener('appinstalled', () => { installEvt = null; $('tInstall').style.display = 'none'; });
+$('tInstall').onclick = async e => { e.stopPropagation(); if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (err) { } installEvt = null; $('tInstall').style.display = 'none'; };
+(() => {
+  let top = true; try { top = window.top === window.self; } catch (e) { top = false; }
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && top && !/(^|\.)itch\.(io|zone)$/.test(location.hostname))
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+})();
+
+// ── Protezione: niente menu contestuale, scorciatoie degli strumenti per sviluppatori, selezione/copia ──
+(() => {
+  const block = e => { e.preventDefault(); e.stopImmediatePropagation(); return false; };
+  const editable = t => t && t.closest && t.closest('input,textarea');
+  addEventListener('contextmenu', block, true);
+  addEventListener('keydown', e => {
+    const k = (e.key || '').toUpperCase(), c = e.ctrlKey || e.metaKey, one = k.length === 1;
+    if (k === 'F12' || (c && e.shiftKey && one && 'IJCK'.includes(k)) || (e.metaKey && e.altKey && one && 'IJCU'.includes(k)) ||
+      (c && !e.shiftKey && !e.altKey && one && 'USP'.includes(k))) return block(e);
+  }, true);
+  ['dragstart', 'selectstart', 'copy', 'cut'].forEach(ev => addEventListener(ev, e => { if (!editable(e.target)) e.preventDefault(); }, true));
+  // Se gli strumenti per sviluppatori sono aperti, l'istruzione debugger mette in pausa: in quel caso la pagina si svuota.
+  const probe = Function('debugger');
+  setInterval(() => {
+    const t0 = performance.now(); probe();
+    if (performance.now() - t0 > 150) {
+      try { A.on && A.toggle(); } catch (e) { }
+      document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0c0c0d;color:#8d8b86;font:600 13px monospace;letter-spacing:.2em;text-align:center;padding:20px">' +
+        L('UFFICIO CHIUSO.<br>CHIUDI GLI STRUMENTI PER SVILUPPATORI E RICARICA.', 'OFFICE CLOSED.<br>CLOSE THE DEVELOPER TOOLS AND RELOAD.') + '</div>';
+    }
+  }, 1500);
+})();
+
+applyStatic(); layout(); requestAnimationFrame(loop); showTitle(); NETW.init();
+/*@DEV*/window.__G = { S: () => S, PH, setScene, CFG, NET, say, narr, choose, explore, hud, updateHUD, setTime, gainColor, renderPratica, genPratica, toast, bgCache, setLang, applyFilter, F, T, LANG: () => LANG };/*@/DEV*/
+
+</script>
+</body>
+</html>

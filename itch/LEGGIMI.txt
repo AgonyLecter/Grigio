@@ -1,0 +1,39 @@
+GRIGIO — PACCHETTO PER ITCH.IO
+==============================
+
+Contenuto
+---------
+1-CARICA-SU-ITCH/
+    GRIGIO-web.zip ........ versione da giocare nel browser (index.html nella radice dello zip)
+    GRIGIO-windows.zip .... versione scaricabile per Windows (GRIGIO.exe, non serve installare)
+2-PAGINA/
+    cover.png ............. copertina 630x500 (cover@2x.png = alta risoluzione)
+    banner.png ............ intestazione della pagina (960x300 @2x)
+    icon.png .............. icona del gioco 512x512
+    screenshots/en, /it ... 11 screenshot 1920x1080 per lingua
+3-TESTI/
+    description-itch.html . descrizione bilingue pronta da incollare
+    description-en.md ..... descrizione in inglese
+    description-it.md ..... descrizione in italiano
+    impostazioni-itch.txt . tutte le impostazioni consigliate (tag, embed, genere...)
+
+Come pubblicarlo in 5 minuti
+----------------------------
+1. itch.io -> Dashboard -> "Create new project".
+2. Title: GRIGIO · Kind of project: HTML.
+3. Uploads: carica GRIGIO-web.zip e spunta "This file will be played in the browser".
+   Carica GRIGIO-windows.zip e seleziona la piattaforma "Windows".
+4. Embed options: 1280 x 720, Mobile friendly (Landscape), Fullscreen button.
+5. Description: apri description-itch.html con un editor di testo, copia tutto e incollalo
+   nell'editor di itch (oppure usa i file .md).
+6. Cover image: cover.png. Screenshots: la cartella screenshots/en (o it).
+7. Genre, tag e il resto: vedi impostazioni-itch.txt.
+8. Salva come Draft, prova il gioco nella pagina, poi metti "Public".
+
+Note
+----
+- Windows potrebbe mostrare "Windows ha protetto il PC" perché l'eseguibile non è firmato
+  digitalmente: basta cliccare "Ulteriori informazioni" -> "Esegui comunque". È normale per
+  i giochi indie (la firma richiede un certificato a pagamento).
+- I salvataggi sono locali (browser o computer). Bigliettini del frigo, statistiche e
+  "impiegati in turno" passano dal database online del gioco: senza internet si gioca offline.
